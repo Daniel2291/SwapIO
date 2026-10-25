@@ -1,0 +1,12 @@
+# Generic sanity synthesis; not a Tiny Tapeout physical signoff.
+read_verilog src/swapio_core.v src/project.v
+hierarchy -check -top tt_um_swapio
+proc
+opt
+memory
+opt
+techmap
+opt
+abc
+stat
+write_verilog -noattr build/swapio_generic.v

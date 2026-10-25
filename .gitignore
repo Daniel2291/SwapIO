@@ -1,0 +1,34 @@
+# Simulation
+*.vcd
+*.fst
+*.vvp
+*.log
+*.wlf
+
+# Python / Cocotb
+__pycache__/
+.pytest_cache/
+*.pyc
+
+# Build outputs
+build/
+outputs/
+
+# Vivado generated files
+.Xil/
+*.jou
+*.str
+*.backup.jou
+*.backup.log
+*.cache/
+*.runs/
+*.sim/
+*.gen/
+*.hw/
+*.ip_user_files/
+
+
+# ASIC physical design outputs
+runs/
+reports/
+results/

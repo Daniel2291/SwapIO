@@ -1,0 +1,6 @@
+{
+  "//": "SwapIO local draft. Replace with the exact official cmos5l template src/config.json before physical implementation.",
+  "CLOCK_PERIOD": 20,
+  "CLOCK_PORT": "clk",
+  "PL_TARGET_DENSITY_PCT": 60
+}
