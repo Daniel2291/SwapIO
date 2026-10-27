@@ -2,10 +2,21 @@ meta:
   name: swap_io
   version: "0.1.0"
   word_bits: 16
-  registers: 10
-  register_bits: 32
+  registers: 8
+  csr: 8
   pc_bits: 9
   threads: 1
+
+fields:
+  d: { name: destination, type: gpr }
+  s: { name: source, type: gpr }
+  p: { name: pin, type: gpio }
+  m: { name: mask, type: gpio_mask }
+  a: { name: address, type: unsigned }
+  i: { name: immediate, type: unsigned }
+  b: { name: blocking, type: boolean }
+  c: { name: irq_clear, type: boolean }
+  w: { name: irq_wait, type: boolean }
 
 instructions:
   - { name: nop, fmt: "000000----------" }
@@ -40,11 +51,11 @@ instructions:
   - { name: inc, fmt: "10010001dddsss--" }
   - { name: xor, fmt: "10010010dddsss--" }
   - { name: and, fmt: "10010011dddsss--" }
-  - { name: or, fmt: "10010011dddsss--" }
-  - { name: shl, fmt: "10010011dddsss--" }
-  - { name: shr, fmt: "10010011dddsss--" }
-  - { name: cmp, fmt: "10010011dddsss--" }
-  - { name: btst, fmt: "10010011dddsss--" }
+  - { name: or, fmt: "10010100dddsss--" }
+  - { name: shl, fmt: "10010101dddsss--" }
+  - { name: shr, fmt: "10010110dddsss--" }
+  - { name: cmp, fmt: "10010111dddsss--" }
+  - { name: btst, fmt: "10011000dddsss--" }
 
   - { name: xori, fmt: "1010000dddiiiiii" }
   - { name: andi, fmt: "1010001dddiiiiii" }
@@ -54,8 +65,8 @@ instructions:
   - { name: cmpi, fmt: "1010101dddiiiiii" }
   - { name: btsti, fmt: "1010110dddiiiiii" }
 
-  - { name: csrr, fmt: "101100dddaaaaa--" }
-  - { name: csrw, fmt: "101100sssaaaaa--" }
+  - { name: csrr, fmt: "101100dddaaaaaaa" }
+  - { name: csrw, fmt: "101101sssaaaaaaa" }
 
   - { name: load, fmt: "110000dddaaaaaaa" }
   - { name: store, fmt: "110001sssaaaaaaa" }
