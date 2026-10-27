@@ -1,0 +1,61 @@
+meta:
+  name: swap_io
+  version: "0.1.0"
+  word_bits: 16
+  registers: 10
+  register_bits: 32
+  pc_bits: 9
+  threads: 1
+
+instructions:
+  - { name: nop, fmt: "000000----------" }
+  - { name: irq, fmt: "000001cwiiiii---" }
+
+  - { name: jmp, fmt: "000100aaaaaaaaa-" }
+  - { name: jz, fmt: "000101aaaaaaaaa-" }
+  - { name: jnz, fmt: "000110aaaaaaaaa-" }
+
+  - { name: set, fmt: "0010dddiiiiiiii-" }
+
+  - { name: mov, fmt: "0011dddsss------" }
+
+  - { name: in, fmt: "01000pppiiiii---" }
+  - { name: out, fmt: "01001pppiiiii---" }
+
+  - { name: push, fmt: "01010b----------" }
+  - { name: pull, fmt: "01011b----------" }
+
+  - { name: wait_low, fmt: "01100-----ppp---" }
+  - { name: wait_high, fmt: "01101-----ppp---" }
+
+  - { name: pin_set, fmt: "0111000mmmmmmmmm" }
+  - { name: pin_clear, fmt: "0111001mmmmmmmmm" }
+  - { name: pin_dir, fmt: "0111010mmmmmmmmm" }
+  - { name: pin_read, fmt: "0111011dddppp---" }
+  - { name: pin_write, fmt: "0111100sssppp---" }
+
+  - { name: wait_cycles, fmt: "1000iiiiiiiiiiii" }
+
+  - { name: dec, fmt: "10010000dddsss--" }
+  - { name: inc, fmt: "10010001dddsss--" }
+  - { name: xor, fmt: "10010010dddsss--" }
+  - { name: and, fmt: "10010011dddsss--" }
+  - { name: or, fmt: "10010011dddsss--" }
+  - { name: shl, fmt: "10010011dddsss--" }
+  - { name: shr, fmt: "10010011dddsss--" }
+  - { name: cmp, fmt: "10010011dddsss--" }
+  - { name: btst, fmt: "10010011dddsss--" }
+
+  - { name: xori, fmt: "1010000dddiiiiii" }
+  - { name: andi, fmt: "1010001dddiiiiii" }
+  - { name: ori, fmt: "1010010dddiiiiii" }
+  - { name: shli, fmt: "1010011dddiiiiii" }
+  - { name: shri, fmt: "1010100dddiiiiii" }
+  - { name: cmpi, fmt: "1010101dddiiiiii" }
+  - { name: btsti, fmt: "1010110dddiiiiii" }
+
+  - { name: csrr, fmt: "101100dddaaaaa--" }
+  - { name: csrw, fmt: "101100sssaaaaa--" }
+
+  - { name: load, fmt: "110000dddaaaaaaa" }
+  - { name: store, fmt: "110001sssaaaaaaa" }
