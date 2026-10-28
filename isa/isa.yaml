@@ -80,59 +80,88 @@ instructions:
   - { name: store, fmt: "110001sssaaaaaaa", func: 2, opcode_family: "LDST" }
 
 csr:
-  - name: "SYS_CTRL_STATUS"
+  # System control and status
+  - name: SYS_CTRL
     addr: 0
-    bits: 11
+    bits: 2
+    access: rw
+    fields:
+      run: { lsb: 0, width: 1, access: rw }
+      irq_enable: { lsb: 1, width: 1, access: rw }
+
+  - name: SYS_STATUS
+    addr: 1
+    bits: 9
     access: ro
     fields:
-      run: { lsb: 0, width: 1, access: ro }
-      halted: { lsb: 1, width: 1, access: ro }
-      stalled: { lsb: 2, width: 1, access: ro }
-      error: { lsb: 3, width: 1, access: ro }
-      irq_index: { lsb: 4, width: 5, access: ro }
-      irq_pending: { lsb: 9, width: 1, access: ro }
-      irq_enable: { lsb: 10, width: 1, access: ro }
+      halted: { lsb: 0, width: 1, access: ro }
+      stalled: { lsb: 1, width: 1, access: ro }
+      error: { lsb: 2, width: 1, access: ro }
+      irq_index: { lsb: 3, width: 5, access: ro }
+      irq_pending: { lsb: 8, width: 1, access: ro }
 
-  - name: "OSR"
-    addr: 1
+  # Shift registers
+  - name: OSR
+    addr: 2
     bits: 32
     access: rw
     fields:
       word: { lsb: 0, width: 32, access: rw }
 
-  - name: "ISR"
-    addr: 2
+  - name: ISR
+    addr: 3
     bits: 32
     access: ro
     fields:
       word: { lsb: 0, width: 32, access: ro }
 
-  - name: "PC"
-    addr: 3
+  # CPU state
+  - name: PC
+    addr: 4
     bits: 9
     access: ro
     fields:
       program_counter: { lsb: 0, width: 9, access: ro }
 
-  - name: "GPIO"
-    addr: 4
-    bits: 32
+  # GPIO
+  - name: GPIO_OUT
+    addr: 5
+    bits: 8
     access: rw
     fields:
       gpio_out: { lsb: 0, width: 8, access: rw }
-      gpio_oe: { lsb: 8, width: 8, access: rw }
-      gpio_in: { lsb: 16, width: 8, access: ro }
-      od_mask: { lsb: 24, width: 8, access: rw }
 
-  - name: "CYCLE_COUNT"
-    addr: 5
+  - name: GPIO_OE
+    addr: 6
+    bits: 8
+    access: rw
+    fields:
+      gpio_oe: { lsb: 0, width: 8, access: rw }
+
+  - name: GPIO_IN
+    addr: 7
+    bits: 8
+    access: ro
+    fields:
+      gpio_in: { lsb: 0, width: 8, access: ro }
+
+  - name: OD_MASK
+    addr: 8
+    bits: 8
+    access: rw
+    fields:
+      od_mask: { lsb: 0, width: 8, access: rw }
+
+  # Counters and flags
+  - name: CYCLE_COUNT
+    addr: 9
     bits: 32
     access: ro
     fields:
       running_cycle_count: { lsb: 0, width: 32, access: ro }
 
-  - name: "FLAGS"
-    addr: 6
+  - name: FLAGS
+    addr: 10
     bits: 4
     access: ro
     fields:
@@ -141,27 +170,29 @@ csr:
       n: { lsb: 2, width: 1, access: ro }
       v: { lsb: 3, width: 1, access: ro }
 
-  - name: "FIFO_STATUS"
-    addr: 7
-    bits: 8
+  # FIFO status
+  - name: FIFO_STATUS
+    addr: 11
+    bits: 10
     access: ro
     fields:
       rx_empty: { lsb: 0, width: 1, access: ro }
       rx_full: { lsb: 1, width: 1, access: ro }
       tx_empty: { lsb: 2, width: 1, access: ro }
       tx_full: { lsb: 3, width: 1, access: ro }
-      rx_level: { lsb: 4, width: 2, access: ro }
-      tx_level: { lsb: 6, width: 2, access: ro }
+      rx_level: { lsb: 4, width: 3, access: ro }
+      tx_level: { lsb: 7, width: 3, access: ro }
 
-  - name: "CLK_DIV"
-    addr: 8
+  # Clock configuration
+  - name: CLK_DIV
+    addr: 12
     bits: 16
     access: rw
     fields:
       clock_divider: { lsb: 0, width: 16, access: rw }
 
-  - name: "CLK_CFG"
-    addr: 9
+  - name: CLK_CFG
+    addr: 13
     bits: 32
     access: rw
     fields:

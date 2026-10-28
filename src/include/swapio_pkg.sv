@@ -90,8 +90,8 @@ package swapio_pkg;
         LDST_STORE = 2'b01
     } ldst_func_t;
 
-    // Unique instruction IDs (independent of raw opcode/function)
     //NOTE: we might not use this depending on how we implement execute
+    // Unique instruction IDs (independent of raw opcode/function)
     typedef enum logic [5:0] {
         INSTR_NOP = 6'd0,
         INSTR_IRQ = 6'd1,
@@ -146,16 +146,20 @@ package swapio_pkg;
 
     // CSR addresses
     typedef enum logic [4:0] {
-        CSR_SYS_CTRL_STATUS = 5'h00,
-        CSR_OSR = 5'h01,
-        CSR_ISR = 5'h02,
-        CSR_PC = 5'h03,
-        CSR_GPIO = 5'h04,
-        CSR_CYCLE_COUNT = 5'h05,
-        CSR_FLAGS = 5'h06,
-        CSR_FIFO_STATUS = 5'h07,
-        CSR_CLK_DIV = 5'h08,
-        CSR_CLK_CFG = 5'h09
+        CSR_SYS_CTRL = 5'h00,
+        CSR_SYS_STATUS = 5'h01,
+        CSR_OSR = 5'h02,
+        CSR_ISR = 5'h03,
+        CSR_PC = 5'h04,
+        CSR_GPIO_OUT = 5'h05,
+        CSR_GPIO_OE = 5'h06,
+        CSR_GPIO_IN = 5'h07,
+        CSR_OD_MASK = 5'h08,
+        CSR_CYCLE_COUNT = 5'h09,
+        CSR_FLAGS = 5'h0A,
+        CSR_FIFO_STATUS = 5'h0B,
+        CSR_CLK_DIV = 5'h0C,
+        CSR_CLK_CFG = 5'h0D
     } csr_addr_t;
 
 endpackage

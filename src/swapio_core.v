@@ -16,13 +16,17 @@ module swapio_core (
   output reg  [7:0]  gpio_oe
 );
   reg [15:0] imem [0:31];
-  reg [4:0] pc;
+
+  // Program Counter
+  // 9 bits
+  reg [8:0] pc;
+
+  // TODO: below will be removed
   reg [31:0] x, y;
   reg running, fault, sideset_enable;
   reg [31:0] divider, divider_count;
   reg [2:0] delay_count;
   wire [15:0] insn = imem[pc]; // combinational-read memory, LUT/mux implementation
-  wire [2:0] opcode = insn[15:13];
   wire [2:0] arg = insn[7:5];
   wire [4:0] imm = insn[4:0];
   wire [1:0] sideset = insn[12:11];
