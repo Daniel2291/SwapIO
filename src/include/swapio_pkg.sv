@@ -162,4 +162,82 @@ package swapio_pkg;
         CSR_CLK_CFG = 5'h0D
     } csr_addr_t;
 
+    // CSR field positions and widths
+    localparam int unsigned SYS_CTRL_RUN_LSB = 0;
+    localparam int unsigned SYS_CTRL_RUN_WIDTH = 1;
+    localparam int unsigned SYS_CTRL_IRQ_ENABLE_LSB = 1;
+    localparam int unsigned SYS_CTRL_IRQ_ENABLE_WIDTH = 1;
+
+    localparam int unsigned SYS_STATUS_HALTED_LSB = 0;
+    localparam int unsigned SYS_STATUS_HALTED_WIDTH = 1;
+    localparam int unsigned SYS_STATUS_STALLED_LSB = 1;
+    localparam int unsigned SYS_STATUS_STALLED_WIDTH = 1;
+    localparam int unsigned SYS_STATUS_ERROR_LSB = 2;
+    localparam int unsigned SYS_STATUS_ERROR_WIDTH = 1;
+    localparam int unsigned SYS_STATUS_IRQ_INDEX_LSB = 3;
+    localparam int unsigned SYS_STATUS_IRQ_INDEX_WIDTH = 5;
+    localparam int unsigned SYS_STATUS_IRQ_PENDING_LSB = 8;
+    localparam int unsigned SYS_STATUS_IRQ_PENDING_WIDTH = 1;
+
+    localparam int unsigned OSR_WORD_LSB = 0;
+    localparam int unsigned OSR_WORD_WIDTH = 32;
+
+    localparam int unsigned ISR_WORD_LSB = 0;
+    localparam int unsigned ISR_WORD_WIDTH = 32;
+
+    localparam int unsigned PC_PROGRAM_COUNTER_LSB = 0;
+    localparam int unsigned PC_PROGRAM_COUNTER_WIDTH = 9;
+
+    localparam int unsigned GPIO_OUT_GPIO_OUT_LSB = 0;
+    localparam int unsigned GPIO_OUT_GPIO_OUT_WIDTH = 8;
+
+    localparam int unsigned GPIO_OE_GPIO_OE_LSB = 0;
+    localparam int unsigned GPIO_OE_GPIO_OE_WIDTH = 8;
+
+    localparam int unsigned GPIO_IN_GPIO_IN_LSB = 0;
+    localparam int unsigned GPIO_IN_GPIO_IN_WIDTH = 8;
+
+    localparam int unsigned OD_MASK_OD_MASK_LSB = 0;
+    localparam int unsigned OD_MASK_OD_MASK_WIDTH = 8;
+
+    localparam int unsigned CYCLE_COUNT_RUNNING_CYCLE_COUNT_LSB = 0;
+    localparam int unsigned CYCLE_COUNT_RUNNING_CYCLE_COUNT_WIDTH = 32;
+
+    localparam int unsigned FLAGS_Z_LSB = 0;
+    localparam int unsigned FLAGS_Z_WIDTH = 1;
+    localparam int unsigned FLAGS_C_LSB = 1;
+    localparam int unsigned FLAGS_C_WIDTH = 1;
+    localparam int unsigned FLAGS_N_LSB = 2;
+    localparam int unsigned FLAGS_N_WIDTH = 1;
+    localparam int unsigned FLAGS_V_LSB = 3;
+    localparam int unsigned FLAGS_V_WIDTH = 1;
+
+    localparam int unsigned FIFO_STATUS_RX_EMPTY_LSB = 0;
+    localparam int unsigned FIFO_STATUS_RX_EMPTY_WIDTH = 1;
+    localparam int unsigned FIFO_STATUS_RX_FULL_LSB = 1;
+    localparam int unsigned FIFO_STATUS_RX_FULL_WIDTH = 1;
+    localparam int unsigned FIFO_STATUS_TX_EMPTY_LSB = 2;
+    localparam int unsigned FIFO_STATUS_TX_EMPTY_WIDTH = 1;
+    localparam int unsigned FIFO_STATUS_TX_FULL_LSB = 3;
+    localparam int unsigned FIFO_STATUS_TX_FULL_WIDTH = 1;
+    localparam int unsigned FIFO_STATUS_RX_LEVEL_LSB = 4;
+    localparam int unsigned FIFO_STATUS_RX_LEVEL_WIDTH = 3;
+    localparam int unsigned FIFO_STATUS_TX_LEVEL_LSB = 7;
+    localparam int unsigned FIFO_STATUS_TX_LEVEL_WIDTH = 3;
+
+    localparam int unsigned CLK_DIV_CLOCK_DIVIDER_LSB = 0;
+    localparam int unsigned CLK_DIV_CLOCK_DIVIDER_WIDTH = 16;
+
+    localparam int unsigned CLK_CFG_CLOCK_ENABLE_LSB = 0;
+    localparam int unsigned CLK_CFG_CLOCK_ENABLE_WIDTH = 1;
+    localparam int unsigned CLK_CFG_PERIOD_LSB = 1;
+    localparam int unsigned CLK_CFG_PERIOD_WIDTH = 15;
+    localparam int unsigned CLK_CFG_HIGH_DURATION_LSB = 16;
+    localparam int unsigned CLK_CFG_HIGH_DURATION_WIDTH = 12;
+    localparam int unsigned CLK_CFG_POLARITY_LSB = 28;
+    localparam int unsigned CLK_CFG_POLARITY_WIDTH = 1;
+    localparam int unsigned CLK_CFG_PIN_SELECT_LSB = 29;
+    localparam int unsigned CLK_CFG_PIN_SELECT_WIDTH = 3;
+
+
 endpackage

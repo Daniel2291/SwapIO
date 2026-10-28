@@ -61,7 +61,7 @@ module swapio_csr import swapio_kg::*; #()(
     end
   end
   always_comb begin
-    case (arr_i)
+    case (addr_i)
       CSR_SYS_CTRL: begin
         r_data_o = sys_ctrl_i;
       end

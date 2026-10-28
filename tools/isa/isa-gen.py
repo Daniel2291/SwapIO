@@ -118,6 +118,25 @@ def generate_function_enums(families: dict) -> list[str]:
         lines.append("")
     return lines
 
+def generate_csr_field_params(isa_dict: dict) -> list[str]:
+    lines = ["    // CSR field positions and widths"]
+
+    for csr in isa_dict["csr"]:
+        csr_name = csr["name"].upper()
+
+        for field_name, field in csr.get("fields", {}).items():
+            prefix = f"{csr_name}_{field_name.upper()}"
+
+            lines.append(
+                f"    localparam int unsigned {prefix}_LSB = {field['lsb']};"
+            )
+            lines.append(
+                f"    localparam int unsigned {prefix}_WIDTH = {field['width']};"
+            )
+
+        lines.append("")
+
+    return lines
 
 def generate_pkg(isa_dict: dict, families: dict, opcodes: dict) -> str:
     lines = [f"package {PKG_FILE_NAME};", "", "    // Primary opcode families"]
@@ -178,69 +197,132 @@ def generate_pkg(isa_dict: dict, families: dict, opcodes: dict) -> str:
     lines.append("    typedef enum logic [4:0] {")
     lines.append(",\n".join(csr_entries))
     lines.append("    } csr_addr_t;")
+
+    lines.append("")
+    lines.extend(generate_csr_field_params(isa_dict))
+
     lines.extend(["", "endpackage", ""])
     return "\n".join(lines)
 
-
 def generate_decoder(families: dict) -> str:
+    decoder_outputs = {
+        "src": 3,
+        "dst": 3,
+        "pin": 3,
+        "imm": 16,
+        "addr": 16,
+        "mask": 8,
+        "clr": 1,
+        "wait": 1,
+        "block": 1,
+        "operation": 6,
+        "valid": 1,
+    }
+
     case_blocks = []
+
     for family, instructions in families.items():
         func_width = instructions[0]["func_width"]
         branches = []
+
         for instr in instructions:
-            stmts = ["valid_o = 1'b1;", f"operation_o = INSTR_{instr['name'].upper()};"]
-            stmts += [f"{field}_o = instr_i[{msb} -: {width}];" for field, msb, width in instr["operands"]]
+            stmts = [
+                "valid_o = 1'b1;",
+                f"operation_o = INSTR_{instr['name'].upper()};",
+            ]
+
+            for field, msb, width in instr["operands"]:
+                output_width = decoder_outputs[field]
+                remaining = output_width - width
+
+                if remaining < 0:
+                    raise ValueError(
+                        f"Operand {field} is {width} bits, "
+                        f"but {field}_o is only {output_width} bits"
+                    )
+
+                value = f"instr_i[{msb} -: {width}]"
+
+                if remaining > 0:
+                    value = f"{{{remaining}'b0, {value}}}"
+
+                stmts.append(f"{field}_o = {value};")
+
             body = "\n".join(stmts)
+
             if func_width:
                 label = function_enum_name(family, instr["name"])
-                branches.append(f"{label}: begin\n{indent(body, '    ')}\nend")
+                branches.append(
+                    f"{label}: begin\n{indent(body, '    ')}\nend"
+                )
             else:
                 branches.append(body)
+
         family_body = "\n\n".join(branches)
+
         if func_width:
-            family_body = f"case (func{func_width})\n{indent(family_body, '    ')}\n    default: ;\nendcase"
-        case_blocks.append(f"OPCODE_{family}: begin\n{indent(family_body, '    ')}\nend")
+            family_body = (
+                f"case (func{func_width})\n"
+                f"{indent(family_body, '    ')}\n"
+                "    default: ;\n"
+                "endcase"
+            )
+
+        case_blocks.append(
+            f"OPCODE_{family}: begin\n"
+            f"{indent(family_body, '    ')}\n"
+            "end"
+        )
 
     lines = [
         f"module {DECODER_FILE_NAME} import {PKG_FILE_NAME}::*; (",
-        "    input  logic [15:0] instr_i,",
-        "    output logic [2:0]  src_o,",
-        "    output logic [2:0]  dst_o,",
-        "    output logic [2:0]  pin_o,",
-        "    output logic [15:0] imm_o,",
-        "    output logic [15:0] addr_o,",
-        "    output logic [7:0]  mask_o,",
-        "    output logic        clr_o,",
-        "    output logic        wait_o,",
-        "    output logic        block_o,",
-        "    output logic [5:0]  operation_o,",
-        "    output logic        valid_o",
-        ");", "",
-        "    logic [3:0] opcode;",
-        "    assign opcode = instr_i[15:12];", "",
+        "    input logic [15:0] instr_i,",
     ]
+
+    # Generate output ports from their declared widths.
+    output_items = list(decoder_outputs.items())
+
+    for index, (name, width) in enumerate(output_items):
+        bits = f"[{width - 1}:0] " if width > 1 else ""
+        comma = "," if index < len(output_items) - 1 else ""
+
+        lines.append(
+            f"    output logic {bits}{name}_o{comma}"
+        )
+
+    lines.extend([
+        ");",
+        "",
+        "    logic [3:0] opcode;",
+        "    assign opcode = instr_i[15:12];",
+        "",
+    ])
+
     for width in (1, 2, 3, 4):
         width_text = "" if width == 1 else f"[{width - 1}:0] "
         end_bit = 12 - width
         slc = "[11]" if width == 1 else f"[11:{end_bit}]"
+
         lines.extend([
             f"    logic {width_text}func{width};",
             f"    assign func{width} = instr_i{slc};",
             "",
         ])
+
     lines.extend([
         "    always_comb begin",
-        "        src_o       = '0;",
-        "        dst_o       = '0;",
-        "        pin_o       = '0;",
-        "        imm_o       = '0;",
-        "        addr_o      = '0;",
-        "        mask_o      = '0;",
-        "        clr_o       = '0;",
-        "        wait_o      = '0;",
-        "        block_o     = '0;",
-        "        operation_o = '0; // Only meaningful when valid_o is high",
-        "        valid_o     = 1'b0;",
+    ])
+
+    # Generate default assignments for every output.
+    for name in decoder_outputs:
+        if name == "operation":
+            lines.append(
+                "        operation_o = '0; // Only meaningful when valid_o is high"
+            )
+        else:
+            lines.append(f"        {name}_o = '0;")
+
+    lines.extend([
         "",
         "        case (opcode)",
         indent("\n\n".join(case_blocks), " " * 12),
@@ -250,8 +332,8 @@ def generate_decoder(families: dict) -> str:
         "endmodule",
         "",
     ])
-    return "\n".join(lines)
 
+    return "\n".join(lines)
 
 def generate(isa_dict: dict) -> None:
     read_meta(isa_dict)

@@ -19,6 +19,21 @@ module swapio_execute import swapio_pkg::*; #()(
   logic              valid_operand;
 
   logic              csr_w_en;
+  logic [31:0]       csr_data_o;
+
+  logic [31:0]       reg_file_data_i;
+  logic              reg_file_w_en;
+  alu_func_t         alu_op;
+  logic [3:0]        alu_flags;
+  logic              alu_flags_w_en;
+
+  logic [31:0]       alu_src1;
+  logic [31:0]       alu_src2;
+
+  logic [31:0]       alu_value;
+
+  logic [31:0]       reg_file_o1;
+  logic [31:0]       reg_file_o2;
 
   /////////////////////////////////////////////////////////
   //    ____ ____    ____            _     _             //
@@ -69,6 +84,15 @@ module swapio_execute import swapio_pkg::*; #()(
     valid_operand
   );
 
+  swapio_alu alu_m(
+    alu_src1,
+    alu_src2, 
+    alu_op,
+
+    alu_value,
+    alu_flags
+  );
+
   /////////////////////////////////////////////////////
   //   _______  __  ____ _____  _    ____ _____      //
   //  | ____\ \/ / / ___|_   _|/ \  / ___| ____|     //
@@ -78,7 +102,24 @@ module swapio_execute import swapio_pkg::*; #()(
   //                                                 //
   /////////////////////////////////////////////////////
 
+  always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin
+      cycle_count_reg <= 'b0;
+      flags_reg       <= 'b0;
+    end else if (alu_flags_w_en) begin
+      flags_reg       <= alu_flags;
+    end
+  end
+
   always_comb begin : blockName
+    reg_file_data_i = 'b0;
+    reg_file_w_en   = 'b0;
+    csr_w_en        = 'b0;
+    alu_src1        = 'b0;
+    alu_src2        = 'b0;
+    alu_op          = ALU_DEC;
+    alu_flags_w_en  = 'b0;
+
     case (operation_operand)
       INSTR_NOP: begin
 
@@ -157,63 +198,148 @@ module swapio_execute import swapio_pkg::*; #()(
       end
 
       INSTR_DEC: begin
+        alu_op = ALU_DEC;
 
+        alu_src1 = reg_file_o1;
+        alu_src2 = reg_file_o2;
+
+        reg_file_data_i = alu_value;
+        reg_file_w_en   = 'b1;
       end
 
       INSTR_INC: begin
+        alu_op = ALU_INC;
 
+        alu_src1 = reg_file_o1;
+        alu_src2 = reg_file_o2;
+
+        reg_file_data_i = alu_value;
+        reg_file_w_en   = 'b1;
       end
 
       INSTR_XOR: begin
+        alu_op = ALU_XOR;
 
+        alu_src1 = reg_file_o1;
+        alu_src2 = reg_file_o2;
+
+        reg_file_data_i = alu_value;
+        reg_file_w_en   = 'b1;
       end
 
       INSTR_AND: begin
+        alu_op = ALU_AND;
 
+        alu_src1 = reg_file_o1;
+        alu_src2 = reg_file_o2;
+
+        reg_file_data_i = alu_value;
+        reg_file_w_en   = 'b1;
       end
 
       INSTR_SHL: begin
+        alu_op = ALU_SHL;
 
+        alu_src1 = reg_file_o1;
+        alu_src2 = reg_file_o2;
+
+        reg_file_data_i = alu_value;
+        reg_file_w_en   = 'b1;
       end
 
       INSTR_SHR: begin
+        alu_op = ALU_SHR;
 
+        alu_src1 = reg_file_o1;
+        alu_src2 = reg_file_o2;
+
+        reg_file_data_i = alu_value;
+        reg_file_w_en   = 'b1;
       end
 
       INSTR_CMP: begin
+        alu_op = ALU_CMP;
 
+        alu_src1 = reg_file_o1;
+        alu_src2 = reg_file_o2;
+
+        reg_file_data_i = alu_value;
+        alu_flags_w_en  = 'b1;
       end
 
       INSTR_BTST: begin
+        alu_op = ALU_BTST;
 
+        alu_src1 = reg_file_o1;
+        alu_src2 = reg_file_o2;
+
+        reg_file_data_i = alu_value;
+        alu_flags_w_en  = 'b1;
       end
 
       INSTR_XORI: begin
+        alu_op = ALU_XOR;
 
+        alu_src1 = imm_operand;
+        alu_src2 = reg_file_o2;
+
+        reg_file_data_i = alu_value;
+        reg_file_w_en   = 'b1;
       end
 
       INSTR_ANDI: begin
+        alu_op = ALU_AND;
 
+        alu_src1 = imm_operand;
+        alu_src2 = reg_file_o2;
+
+        reg_file_data_i = alu_value;
+        reg_file_w_en   = 'b1;
       end
 
       INSTR_SHLI: begin
+        alu_op = ALU_SHL;
 
+        alu_src1 = reg_file_o2;
+        alu_src2 = {16'b0, imm_operand};
+
+        reg_file_data_i = alu_value;
+        reg_file_w_en   = 'b1;
       end
 
       INSTR_SHRI: begin
+        alu_op = ALU_SHR;
 
+        alu_src1 = reg_file_o2;
+        alu_src2 = {16'b0, imm_operand};
+
+        reg_file_data_i = alu_value;
+        reg_file_w_en   = 'b1;
       end
 
       INSTR_CMPI: begin
+        alu_op = ALU_CMP;
 
+        alu_src1 = imm_operand;
+        alu_src2 = reg_file_o2;
+
+        reg_file_data_i = alu_value;
+        alu_flags_w_en  = 'b1;
       end
 
       INSTR_BTSTI: begin
+        alu_op = ALU_BTST;
 
+        alu_src1 = imm_operand;
+        alu_src2 = reg_file_o2;
+
+        reg_file_data_i = alu_value;
+        alu_flags_w_en  = 'b1;
       end
 
       INSTR_CSRR: begin
-
+        reg_file_data_i = csr_data_o;
+        reg_file_w_en   = 'b1;
       end
 
       INSTR_CSRW: begin
@@ -221,11 +347,11 @@ module swapio_execute import swapio_pkg::*; #()(
       end
 
       INSTR_LOAD: begin
-
+        //FOR FUTURE
       end
 
       INSTR_STORE: begin
-
+        //FOR FUTURE
       end
       default: begin
       end
@@ -240,9 +366,23 @@ module swapio_execute import swapio_pkg::*; #()(
     .addr_i(addr_operand),
     .w_enable_i(csr_w_en),
 
-    .w_data_i(),
-    .r_data_o(),
-    .pc_i(pc_i)
+    .w_data_i(reg_file_o1),
+    .r_data_o(csr_data_o),
+    .pc_i(pc_i),
+
+    .sys_ctrl_i(sys_ctrl_reg),
+    .sys_status_i(sys_status_reg),
+    .osr_i(osr),
+    .isr_i(isr),
+    .gpio_out_i(gpio_out_reg),
+    .gpio_oe_i(gpio_oe_reg),
+    .gpio_in_i(gpio_in_reg),
+    .gpio_od_mask_o(), //TODO: maybe expose to outside module
+    .cycle_count_i(cycle_count_reg),
+    .flags_i(flags_reg),
+    .fifo_status_i(fifo_status_reg),
+    .clk_div_o(),      //TODO: maybe expose to outside module
+    .clk_cfg_o()       //TODO: maybe expose to outside module
   );
 
   // handles R/W to the GPR (general purpose registers)
@@ -250,15 +390,15 @@ module swapio_execute import swapio_pkg::*; #()(
     .clk_i(clk_i),
     .rst_n(rst_n),
 
-    .w_en_i(),
-    .r_addr1_i(),
-    .r_addr2_i(),
+    .w_en_i(reg_file_w_en),
+    .r_addr1_i(src_operand),
+    .r_addr2_i(dst_operand),
 
-    .w_addr_i(),
+    .w_addr_i(dst_operand),
 
-    .data_i(),
-    .data1_o(),
-    .data2_o()
+    .data_i(reg_file_data_i),
+    .data1_o(reg_file_o1),
+    .data2_o(reg_file_o2)
   );
 
 endmodule

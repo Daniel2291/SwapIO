@@ -42,9 +42,9 @@ instructions:
   - { name: wait_low, fmt: "01100-----ppp---", func: 1, opcode_family: "WAIT" }
   - { name: wait_high, fmt: "01101-----ppp---", func: 1, opcode_family: "WAIT" }
 
-  - { name: pin_set, fmt: "0111000mmmmmmmmm", func: 3, opcode_family: "PIN" }
-  - { name: pin_clear, fmt: "0111001mmmmmmmmm", func: 3, opcode_family: "PIN" }
-  - { name: pin_dir, fmt: "0111010mmmmmmmmm", func: 3, opcode_family: "PIN" }
+  - { name: pin_set, fmt: "0111000mmmmmmmm-", func: 3, opcode_family: "PIN" }
+  - { name: pin_clear, fmt: "0111001mmmmmmmm-", func: 3, opcode_family: "PIN" }
+  - { name: pin_dir, fmt: "0111010mmmmmmmm-", func: 3, opcode_family: "PIN" }
   - { name: pin_read, fmt: "0111011dddppp---", func: 3, opcode_family: "PIN" }
   - { name: pin_write, fmt: "0111100sssppp---", func: 3, opcode_family: "PIN" }
 
