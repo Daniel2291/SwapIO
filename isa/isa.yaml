@@ -1,0 +1,203 @@
+# link to documentation
+# https://docs.google.com/spreadsheets/d/17SSdHboPwG_OAD2tteBOaMbrYvFGVW6I3PZBQlxO6KI/edit?usp=sharing
+
+meta:
+  name: swap_io
+  version: "0.1.0"
+  word_bits: 16
+  registers: 8
+  csr: 10
+  pc_bits: 9
+  threads: 1
+
+fields:
+  d: { name: destination, verilog_field: "dst" }
+  s: { name: source, verilog_field: "src" }
+  p: { name: pin, verilog_field: "pin" }
+  m: { name: mask, verilog_field: "mask" }
+  a: { name: address, verilog_field: "addr" }
+  i: { name: immediate, verilog_field: "imm" }
+  b: { name: blocking, verilog_field: "wait" }
+  c: { name: irq_clear, verilog_field: "clr" }
+  w: { name: irq_wait, verilog_field: "wait" }
+
+instructions:
+  - { name: nop, fmt: "000000----------", func: 2, opcode_family: "SYS" }
+  - { name: irq, fmt: "000001cwiiiii---", func: 2, opcode_family: "SYS" }
+
+  - { name: jmp, fmt: "000100aaaaaaaaa-", func: 2, opcode_family: "BRANCH" }
+  - { name: jz, fmt: "000101aaaaaaaaa-", func: 2, opcode_family: "BRANCH" }
+  - { name: jnz, fmt: "000110aaaaaaaaa-", func: 2, opcode_family: "BRANCH" }
+
+  - { name: set, fmt: "0010dddiiiiiiii-", func: 0, opcode_family: "SET" }
+
+  - { name: mov, fmt: "0011dddsss------", func: 0, opcode_family: "MOV" }
+
+  - { name: in, fmt: "01000pppiiiii---", func: 1, opcode_family: "SHIFT_REG" }
+  - { name: out, fmt: "01001pppiiiii---", func: 1, opcode_family: "SHIFT_REG" }
+
+  - { name: push, fmt: "01010b----------", func: 1, opcode_family: "FIFO" }
+  - { name: pull, fmt: "01011b----------", func: 1, opcode_family: "FIFO" }
+
+  - { name: wait_low, fmt: "01100-----ppp---", func: 1, opcode_family: "WAIT" }
+  - { name: wait_high, fmt: "01101-----ppp---", func: 1, opcode_family: "WAIT" }
+
+  - { name: pin_set, fmt: "0111000mmmmmmmm-", func: 3, opcode_family: "PIN" }
+  - { name: pin_clear, fmt: "0111001mmmmmmmm-", func: 3, opcode_family: "PIN" }
+  - { name: pin_dir, fmt: "0111010mmmmmmmm-", func: 3, opcode_family: "PIN" }
+  - { name: pin_read, fmt: "0111011dddppp---", func: 3, opcode_family: "PIN" }
+  - { name: pin_write, fmt: "0111100sssppp---", func: 3, opcode_family: "PIN" }
+
+  - {
+      name: wait_cycles,
+      fmt: "1000iiiiiiiiiiii",
+      func: 0,
+      opcode_family: "WAIT_CYCLES",
+    }
+
+  - { name: dec, fmt: "10010000dddsss--", func: 4, opcode_family: "ALU" }
+  - { name: inc, fmt: "10010001dddsss--", func: 4, opcode_family: "ALU" }
+  - { name: xor, fmt: "10010010dddsss--", func: 4, opcode_family: "ALU" }
+  - { name: and, fmt: "10010011dddsss--", func: 4, opcode_family: "ALU" }
+  - { name: or, fmt: "10010100dddsss--", func: 4, opcode_family: "ALU" }
+  - { name: shl, fmt: "10010101dddsss--", func: 4, opcode_family: "ALU" }
+  - { name: shr, fmt: "10010110dddsss--", func: 4, opcode_family: "ALU" }
+  - { name: cmp, fmt: "10010111dddsss--", func: 4, opcode_family: "ALU" }
+  - { name: btst, fmt: "10011000dddsss--", func: 4, opcode_family: "ALU" }
+
+  - { name: xori, fmt: "1010000dddiiiiii", func: 3, opcode_family: "ALU_IMM" }
+  - { name: andi, fmt: "1010001dddiiiiii", func: 3, opcode_family: "ALU_IMM" }
+  - { name: ori, fmt: "1010010dddiiiiii", func: 3, opcode_family: "ALU_IMM" }
+  - { name: shli, fmt: "1010011dddiiiiii", func: 3, opcode_family: "ALU_IMM" }
+  - { name: shri, fmt: "1010100dddiiiiii", func: 3, opcode_family: "ALU_IMM" }
+  - { name: cmpi, fmt: "1010101dddiiiiii", func: 3, opcode_family: "ALU_IMM" }
+  - { name: btsti, fmt: "1010110dddiiiiii", func: 3, opcode_family: "ALU_IMM" }
+
+  - { name: csrr, fmt: "101100dddaaaaaaa", func: 2, opcode_family: "CSR_RW" }
+  - { name: csrw, fmt: "101101sssaaaaaaa", func: 2, opcode_family: "CSR_RW" }
+
+  - { name: load, fmt: "110000dddaaaaaaa", func: 2, opcode_family: "LDST" }
+  - { name: store, fmt: "110001sssaaaaaaa", func: 2, opcode_family: "LDST" }
+
+csr:
+  # System control and status
+  - name: SYS_CTRL
+    addr: 0
+    bits: 2
+    access: rw
+    fields:
+      run: { lsb: 0, width: 1, access: rw }
+      irq_enable: { lsb: 1, width: 1, access: rw }
+
+  - name: SYS_STATUS
+    addr: 1
+    bits: 9
+    access: ro
+    fields:
+      halted: { lsb: 0, width: 1, access: ro }
+      stalled: { lsb: 1, width: 1, access: ro }
+      error: { lsb: 2, width: 1, access: ro }
+      irq_index: { lsb: 3, width: 5, access: ro }
+      irq_pending: { lsb: 8, width: 1, access: ro }
+
+  # Shift registers
+  - name: OSR
+    addr: 2
+    bits: 32
+    access: rw
+    fields:
+      word: { lsb: 0, width: 32, access: rw }
+
+  - name: ISR
+    addr: 3
+    bits: 32
+    access: ro
+    fields:
+      word: { lsb: 0, width: 32, access: ro }
+
+  # CPU state
+  - name: PC
+    addr: 4
+    bits: 9
+    access: ro
+    fields:
+      program_counter: { lsb: 0, width: 9, access: ro }
+
+  # GPIO
+  - name: GPIO_OUT
+    addr: 5
+    bits: 8
+    access: rw
+    fields:
+      gpio_out: { lsb: 0, width: 8, access: rw }
+
+  - name: GPIO_OE
+    addr: 6
+    bits: 8
+    access: rw
+    fields:
+      gpio_oe: { lsb: 0, width: 8, access: rw }
+
+  - name: GPIO_IN
+    addr: 7
+    bits: 8
+    access: ro
+    fields:
+      gpio_in: { lsb: 0, width: 8, access: ro }
+
+  - name: OD_MASK
+    addr: 8
+    bits: 8
+    access: rw
+    fields:
+      od_mask: { lsb: 0, width: 8, access: rw }
+
+  # Counters and flags
+  - name: CYCLE_COUNT
+    addr: 9
+    bits: 32
+    access: ro
+    fields:
+      running_cycle_count: { lsb: 0, width: 32, access: ro }
+
+  - name: FLAGS
+    addr: 10
+    bits: 4
+    access: ro
+    fields:
+      z: { lsb: 0, width: 1, access: ro }
+      c: { lsb: 1, width: 1, access: ro }
+      n: { lsb: 2, width: 1, access: ro }
+      v: { lsb: 3, width: 1, access: ro }
+
+  # FIFO status
+  - name: FIFO_STATUS
+    addr: 11
+    bits: 10
+    access: ro
+    fields:
+      rx_empty: { lsb: 0, width: 1, access: ro }
+      rx_full: { lsb: 1, width: 1, access: ro }
+      tx_empty: { lsb: 2, width: 1, access: ro }
+      tx_full: { lsb: 3, width: 1, access: ro }
+      rx_level: { lsb: 4, width: 3, access: ro }
+      tx_level: { lsb: 7, width: 3, access: ro }
+
+  # Clock configuration
+  - name: CLK_DIV
+    addr: 12
+    bits: 16
+    access: rw
+    fields:
+      clock_divider: { lsb: 0, width: 16, access: rw }
+
+  - name: CLK_CFG
+    addr: 13
+    bits: 32
+    access: rw
+    fields:
+      clock_enable: { lsb: 0, width: 1, access: rw }
+      period: { lsb: 1, width: 15, access: rw }
+      high_duration: { lsb: 16, width: 12, access: rw }
+      polarity: { lsb: 28, width: 1, access: rw }
+      pin_select: { lsb: 29, width: 3, access: rw }
