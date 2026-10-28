@@ -80,11 +80,93 @@ instructions:
   - { name: store, fmt: "110001sssaaaaaaa", func: 2, opcode_family: "LDST" }
 
 csr:
-  - { name: "SYS_CTRL_STATUS", bits: 11, addr: "8'h00" }
-  - { name: "PC", bits: 9, addr: "8'h01" }
-  - { name: "GPIO", bits: 32, addr: "8'h02" }
-  - { name: "CYCLE_COUNT", bits: 32, addr: "8'h03" }
-  - { name: "FLAGS", bits: 4, addr: "8'h04" }
-  - { name: "FIFO_STATUS", bits: 8, addr: "8'h05" }
-  - { name: "CLK_DIV", bits: 16, addr: "8'h06" }
-  - { name: "CLK_CFG", bits: 11, addr: "8'h07" }
+  - name: "SYS_CTRL_STATUS"
+    addr: 0
+    bits: 11
+    access: ro
+    fields:
+      run: { lsb: 0, width: 1, access: ro }
+      halted: { lsb: 1, width: 1, access: ro }
+      stalled: { lsb: 2, width: 1, access: ro }
+      error: { lsb: 3, width: 1, access: ro }
+      irq_index: { lsb: 4, width: 5, access: ro }
+      irq_pending: { lsb: 9, width: 1, access: ro }
+      irq_enable: { lsb: 10, width: 1, access: ro }
+
+  - name: "OSR"
+    addr: 1
+    bits: 32
+    access: rw
+    fields:
+      word: { lsb: 0, width: 32, access: rw }
+
+  - name: "ISR"
+    addr: 2
+    bits: 32
+    access: ro
+    fields:
+      word: { lsb: 0, width: 32, access: ro }
+
+  - name: "PC"
+    addr: 3
+    bits: 9
+    access: ro
+    fields:
+      program_counter: { lsb: 0, width: 9, access: ro }
+
+  - name: "GPIO"
+    addr: 4
+    bits: 32
+    access: rw
+    fields:
+      gpio_out: { lsb: 0, width: 8, access: rw }
+      gpio_oe: { lsb: 8, width: 8, access: rw }
+      gpio_in: { lsb: 16, width: 8, access: ro }
+      od_mask: { lsb: 24, width: 8, access: rw }
+
+  - name: "CYCLE_COUNT"
+    addr: 5
+    bits: 32
+    access: ro
+    fields:
+      running_cycle_count: { lsb: 0, width: 32, access: ro }
+
+  - name: "FLAGS"
+    addr: 6
+    bits: 4
+    access: ro
+    fields:
+      z: { lsb: 0, width: 1, access: ro }
+      c: { lsb: 1, width: 1, access: ro }
+      n: { lsb: 2, width: 1, access: ro }
+      v: { lsb: 3, width: 1, access: ro }
+
+  - name: "FIFO_STATUS"
+    addr: 7
+    bits: 8
+    access: ro
+    fields:
+      rx_empty: { lsb: 0, width: 1, access: ro }
+      rx_full: { lsb: 1, width: 1, access: ro }
+      tx_empty: { lsb: 2, width: 1, access: ro }
+      tx_full: { lsb: 3, width: 1, access: ro }
+      rx_level: { lsb: 4, width: 2, access: ro }
+      tx_level: { lsb: 6, width: 2, access: ro }
+
+  - name: "CLK_DIV"
+    addr: 8
+    bits: 16
+    access: rw
+    fields:
+      clock_divider: { lsb: 0, width: 16, access: rw }
+
+  - name: "CLK_CFG"
+    addr: 9
+    bits: 32
+    access: rw
+    fields:
+      clock_enable: { lsb: 0, width: 1, access: rw }
+      period: { lsb: 1, width: 15, access: rw }
+      high_duration: { lsb: 16, width: 12, access: rw }
+      polarity: { lsb: 28, width: 1, access: rw }
+      pin_select: { lsb: 29, width: 3, access: rw }
