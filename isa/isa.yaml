@@ -1,3 +1,6 @@
+# link to documentation
+# https://docs.google.com/spreadsheets/d/17SSdHboPwG_OAD2tteBOaMbrYvFGVW6I3PZBQlxO6KI/edit?usp=sharing
+
 meta:
   name: swap_io
   version: "0.1.0"
@@ -19,54 +22,69 @@ fields:
   w: { name: irq_wait, verilog_field: "wait" }
 
 instructions:
-  - { name: nop, fmt: "000000----------", func: 2 }
-  - { name: irq, fmt: "000001cwiiiii---", func: 2 }
+  - { name: nop, fmt: "000000----------", func: 2, opcode_family: "SYS" }
+  - { name: irq, fmt: "000001cwiiiii---", func: 2, opcode_family: "SYS" }
 
-  - { name: jmp, fmt: "000100aaaaaaaaa-", func: 2 }
-  - { name: jz, fmt: "000101aaaaaaaaa-", func: 2 }
-  - { name: jnz, fmt: "000110aaaaaaaaa-", func: 2 }
+  - { name: jmp, fmt: "000100aaaaaaaaa-", func: 2, opcode_family: "BRANCH" }
+  - { name: jz, fmt: "000101aaaaaaaaa-", func: 2, opcode_family: "BRANCH" }
+  - { name: jnz, fmt: "000110aaaaaaaaa-", func: 2, opcode_family: "BRANCH" }
 
-  - { name: set, fmt: "0010dddiiiiiiii-", func: 0 }
+  - { name: set, fmt: "0010dddiiiiiiii-", func: 0, opcode_family: "SET" }
 
-  - { name: mov, fmt: "0011dddsss------", func: 0 }
+  - { name: mov, fmt: "0011dddsss------", func: 0, opcode_family: "MOV" }
 
-  - { name: in, fmt: "01000pppiiiii---", func: 1 }
-  - { name: out, fmt: "01001pppiiiii---", func: 1 }
+  - { name: in, fmt: "01000pppiiiii---", func: 1, opcode_family: "SHIFT_REG" }
+  - { name: out, fmt: "01001pppiiiii---", func: 1, opcode_family: "SHIFT_REG" }
 
-  - { name: push, fmt: "01010b----------", func: 1 }
-  - { name: pull, fmt: "01011b----------", func: 1 }
+  - { name: push, fmt: "01010b----------", func: 1, opcode_family: "FIFO" }
+  - { name: pull, fmt: "01011b----------", func: 1, opcode_family: "FIFO" }
 
-  - { name: wait_low, fmt: "01100-----ppp---", func: 1 }
-  - { name: wait_high, fmt: "01101-----ppp---", func: 1 }
+  - { name: wait_low, fmt: "01100-----ppp---", func: 1, opcode_family: "WAIT" }
+  - { name: wait_high, fmt: "01101-----ppp---", func: 1, opcode_family: "WAIT" }
 
-  - { name: pin_set, fmt: "0111000mmmmmmmmm", func: 3 }
-  - { name: pin_clear, fmt: "0111001mmmmmmmmm", func: 3 }
-  - { name: pin_dir, fmt: "0111010mmmmmmmmm", func: 3 }
-  - { name: pin_read, fmt: "0111011dddppp---", func: 3 }
-  - { name: pin_write, fmt: "0111100sssppp---", func: 3 }
+  - { name: pin_set, fmt: "0111000mmmmmmmmm", func: 3, opcode_family: "PIN" }
+  - { name: pin_clear, fmt: "0111001mmmmmmmmm", func: 3, opcode_family: "PIN" }
+  - { name: pin_dir, fmt: "0111010mmmmmmmmm", func: 3, opcode_family: "PIN" }
+  - { name: pin_read, fmt: "0111011dddppp---", func: 3, opcode_family: "PIN" }
+  - { name: pin_write, fmt: "0111100sssppp---", func: 3, opcode_family: "PIN" }
 
-  - { name: wait_cycles, fmt: "1000iiiiiiiiiiii", func: 0 }
+  - {
+      name: wait_cycles,
+      fmt: "1000iiiiiiiiiiii",
+      func: 0,
+      opcode_family: "WAIT_CYCLES",
+    }
 
-  - { name: dec, fmt: "10010000dddsss--", func: "4" }
-  - { name: inc, fmt: "10010001dddsss--", func: "4" }
-  - { name: xor, fmt: "10010010dddsss--", func: "4" }
-  - { name: and, fmt: "10010011dddsss--", func: "4" }
-  - { name: or, fmt: "10010100dddsss--", func: "4" }
-  - { name: shl, fmt: "10010101dddsss--", func: "4" }
-  - { name: shr, fmt: "10010110dddsss--", func: "4" }
-  - { name: cmp, fmt: "10010111dddsss--", func: "4" }
-  - { name: btst, fmt: "10011000dddsss--", func: "4" }
+  - { name: dec, fmt: "10010000dddsss--", func: 4, opcode_family: "ALU" }
+  - { name: inc, fmt: "10010001dddsss--", func: 4, opcode_family: "ALU" }
+  - { name: xor, fmt: "10010010dddsss--", func: 4, opcode_family: "ALU" }
+  - { name: and, fmt: "10010011dddsss--", func: 4, opcode_family: "ALU" }
+  - { name: or, fmt: "10010100dddsss--", func: 4, opcode_family: "ALU" }
+  - { name: shl, fmt: "10010101dddsss--", func: 4, opcode_family: "ALU" }
+  - { name: shr, fmt: "10010110dddsss--", func: 4, opcode_family: "ALU" }
+  - { name: cmp, fmt: "10010111dddsss--", func: 4, opcode_family: "ALU" }
+  - { name: btst, fmt: "10011000dddsss--", func: 4, opcode_family: "ALU" }
 
-  - { name: xori, fmt: "1010000dddiiiiii", func: 3 }
-  - { name: andi, fmt: "1010001dddiiiiii", func: 3 }
-  - { name: ori, fmt: "1010010dddiiiiii", func: 3 }
-  - { name: shli, fmt: "1010011dddiiiiii", func: 3 }
-  - { name: shri, fmt: "1010100dddiiiiii", func: 3 }
-  - { name: cmpi, fmt: "1010101dddiiiiii", func: 3 }
-  - { name: btsti, fmt: "1010110dddiiiiii", func: 3 }
+  - { name: xori, fmt: "1010000dddiiiiii", func: 3, opcode_family: "ALU_IMM" }
+  - { name: andi, fmt: "1010001dddiiiiii", func: 3, opcode_family: "ALU_IMM" }
+  - { name: ori, fmt: "1010010dddiiiiii", func: 3, opcode_family: "ALU_IMM" }
+  - { name: shli, fmt: "1010011dddiiiiii", func: 3, opcode_family: "ALU_IMM" }
+  - { name: shri, fmt: "1010100dddiiiiii", func: 3, opcode_family: "ALU_IMM" }
+  - { name: cmpi, fmt: "1010101dddiiiiii", func: 3, opcode_family: "ALU_IMM" }
+  - { name: btsti, fmt: "1010110dddiiiiii", func: 3, opcode_family: "ALU_IMM" }
 
-  - { name: csrr, fmt: "101100dddaaaaaaa", func: 2 }
-  - { name: csrw, fmt: "101101sssaaaaaaa", func: 2 }
+  - { name: csrr, fmt: "101100dddaaaaaaa", func: 2, opcode_family: "CSR_RW" }
+  - { name: csrw, fmt: "101101sssaaaaaaa", func: 2, opcode_family: "CSR_RW" }
 
-  - { name: load, fmt: "110000dddaaaaaaa", func: 2 }
-  - { name: store, fmt: "110001sssaaaaaaa", func: 2 }
+  - { name: load, fmt: "110000dddaaaaaaa", func: 2, opcode_family: "LDST" }
+  - { name: store, fmt: "110001sssaaaaaaa", func: 2, opcode_family: "LDST" }
+
+csr:
+  - { name: "SYS_CTRL_STATUS", bits: 11, addr: "8'h00" }
+  - { name: "PC", bits: 9, addr: "8'h01" }
+  - { name: "GPIO", bits: 32, addr: "8'h02" }
+  - { name: "CYCLE_COUNT", bits: 32, addr: "8'h03" }
+  - { name: "FLAGS", bits: 4, addr: "8'h04" }
+  - { name: "FIFO_STATUS", bits: 8, addr: "8'h05" }
+  - { name: "CLK_DIV", bits: 16, addr: "8'h06" }
+  - { name: "CLK_CFG", bits: 11, addr: "8'h07" }
