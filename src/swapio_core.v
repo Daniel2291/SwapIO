@@ -17,10 +17,6 @@ module swapio_core (
 );
   reg [15:0] imem [0:31];
 
-  // Program Counter
-  // 9 bits
-  reg [8:0] pc;
-
   // TODO: below will be removed
   reg [31:0] x, y;
   reg running, fault, sideset_enable;

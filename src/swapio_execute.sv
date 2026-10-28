@@ -3,8 +3,12 @@ module swapio_execute import swapio_pkg::*; #()(
   input logic        rst_n,
 
   input logic [15:0] insn_i,
-  input logic        pc_i
+  output logic        pc_o
 );
+
+  // Program Counter
+  // 9 bits
+  reg [8:0] pc;
 
   logic [2:0]        src_operand;
   logic [2:0]        dst_operand;
@@ -122,7 +126,7 @@ module swapio_execute import swapio_pkg::*; #()(
 
     case (operation_operand)
       INSTR_NOP: begin
-
+        // we do nothing
       end
 
       INSTR_IRQ: begin
@@ -130,7 +134,7 @@ module swapio_execute import swapio_pkg::*; #()(
       end
 
       INSTR_JMP: begin
-
+        
       end
 
       INSTR_JZ: begin
@@ -142,11 +146,13 @@ module swapio_execute import swapio_pkg::*; #()(
       end
 
       INSTR_SET: begin
-
+        reg_file_data_i = {16'b0, imm_operand};
+        reg_file_w_en   = 1'b1;
       end
 
       INSTR_MOV: begin
-
+        reg_file_data_i = reg_file_o1;
+        reg_file_w_en   = 'b1;
       end
 
       INSTR_IN: begin
@@ -343,7 +349,7 @@ module swapio_execute import swapio_pkg::*; #()(
       end
 
       INSTR_CSRW: begin
-
+        csr_w_en          = 'b1;
       end
 
       INSTR_LOAD: begin
