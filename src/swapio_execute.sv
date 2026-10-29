@@ -1,14 +1,19 @@
 module swapio_execute import swapio_pkg::*; #()(
-  input logic        clk_i,
-  input logic        rst_n,
+  input logic         clk_i,
+  input logic         rst_n,
 
-  input logic [15:0] insn_i,
-  output logic        pc_o
+  input logic  [15:0] insn_i,
+  input logic  [8: 0] pc_i,
+
+  input  logic        execute_en_i,
+  output logic [8: 0] pc_next_o,
+
+  output logic        instruction_retire_o,
+
+  input  logic [7: 0] gpio_in,
+  output logic [7: 0] gpio_out,
+  output logic [7: 0] gpio_oe
 );
-
-  // Program Counter
-  // 9 bits
-  reg [8:0] pc;
 
   logic [2:0]        src_operand;
   logic [2:0]        dst_operand;
@@ -38,6 +43,16 @@ module swapio_execute import swapio_pkg::*; #()(
 
   logic [31:0]       reg_file_o1;
   logic [31:0]       reg_file_o2;
+
+
+  logic              stall;
+
+  // set at the end of the file
+  logic reg_file_write_en;
+  logic csr_write_en;
+  logic flags_write_en;
+
+  assign instruction_retire_o = execute_en_i && valid_operand && !stall;
 
   /////////////////////////////////////////////////////////
   //    ____ ____    ____            _     _             //
@@ -106,11 +121,11 @@ module swapio_execute import swapio_pkg::*; #()(
   //                                                 //
   /////////////////////////////////////////////////////
 
-  always_ff @(posedge clk or negedge rst_n) begin
+  always_ff @(posedge clk_i or negedge rst_n) begin
     if (!rst_n) begin
       cycle_count_reg <= 'b0;
       flags_reg       <= 'b0;
-    end else if (alu_flags_w_en) begin
+    end else if (flags_write_en) begin
       flags_reg       <= alu_flags;
     end
   end
@@ -123,6 +138,9 @@ module swapio_execute import swapio_pkg::*; #()(
     alu_src2        = 'b0;
     alu_op          = ALU_DEC;
     alu_flags_w_en  = 'b0;
+    pc_next_o       = pc_i + 'd1;
+
+    stall           = 'b0;
 
     case (operation_operand)
       INSTR_NOP: begin
@@ -130,19 +148,22 @@ module swapio_execute import swapio_pkg::*; #()(
       end
 
       INSTR_IRQ: begin
-
+        // WARN:
+        // Leave it for now
+        // I cant think of a reason
+        // why we would need it at the beginning
       end
 
       INSTR_JMP: begin
-        
+        pc_next_o  = addr_operand;
       end
 
       INSTR_JZ: begin
-
+        pc_next_o = flags_reg[FLAGS_Z_LSB]? addr_operand : pc_i + 'd1;
       end
 
       INSTR_JNZ: begin
-
+        pc_next_o = (!flags_reg[FLAGS_Z_LSB])? addr_operand : pc_i + 'd1;
       end
 
       INSTR_SET: begin
@@ -156,7 +177,8 @@ module swapio_execute import swapio_pkg::*; #()(
       end
 
       INSTR_IN: begin
-
+        // need a synchronizer
+        // gpio_out_i[pin_operand] =
       end
 
       INSTR_OUT: begin
@@ -164,19 +186,23 @@ module swapio_execute import swapio_pkg::*; #()(
       end
 
       INSTR_PUSH: begin
-
+        /*
+        * Push to the TX buffer
+        */
       end
 
       INSTR_PULL: begin
-
+        /*
+        * Pull from the RX buffer
+        */
       end
 
       INSTR_WAIT_LOW: begin
-
+        // need a synchronizer
       end
 
       INSTR_WAIT_HIGH: begin
-
+        // need a synchronizer
       end
 
       INSTR_PIN_SET: begin
@@ -266,8 +292,8 @@ module swapio_execute import swapio_pkg::*; #()(
       INSTR_CMP: begin
         alu_op = ALU_CMP;
 
-        alu_src1 = reg_file_o1;
-        alu_src2 = reg_file_o2;
+        alu_src1 = reg_file_o2;
+        alu_src2 = reg_file_o1;
 
         reg_file_data_i = alu_value;
         alu_flags_w_en  = 'b1;
@@ -326,8 +352,8 @@ module swapio_execute import swapio_pkg::*; #()(
       INSTR_CMPI: begin
         alu_op = ALU_CMP;
 
-        alu_src1 = imm_operand;
-        alu_src2 = reg_file_o2;
+        alu_src1 = reg_file_o2;
+        alu_src2 = {16'b0, imm_operand};
 
         reg_file_data_i = alu_value;
         alu_flags_w_en  = 'b1;
@@ -353,11 +379,15 @@ module swapio_execute import swapio_pkg::*; #()(
       end
 
       INSTR_LOAD: begin
-        //FOR FUTURE
+        /* WARN:
+         * FOR FUTURE
+         */
       end
 
       INSTR_STORE: begin
-        //FOR FUTURE
+        /* WARN:
+         * FOR FUTURE
+         */
       end
       default: begin
       end
@@ -370,7 +400,7 @@ module swapio_execute import swapio_pkg::*; #()(
     .rst_n(rst_n),
 
     .addr_i(addr_operand),
-    .w_enable_i(csr_w_en),
+    .w_enable_i(csr_write_en),
 
     .w_data_i(reg_file_o1),
     .r_data_o(csr_data_o),
@@ -396,7 +426,7 @@ module swapio_execute import swapio_pkg::*; #()(
     .clk_i(clk_i),
     .rst_n(rst_n),
 
-    .w_en_i(reg_file_w_en),
+    .w_en_i(reg_file_write_en),
     .r_addr1_i(src_operand),
     .r_addr2_i(dst_operand),
 
@@ -406,5 +436,9 @@ module swapio_execute import swapio_pkg::*; #()(
     .data1_o(reg_file_o1),
     .data2_o(reg_file_o2)
   );
+
+  assign reg_file_write_en = instruction_retire_o && reg_file_w_en;
+  assign csr_write_en      = instruction_retire_o && csr_w_en;
+  assign flags_write_en    = instruction_retire_o && alu_flags_w_en;
 
 endmodule
