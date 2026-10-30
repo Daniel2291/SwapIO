@@ -120,15 +120,26 @@ module swapio_execute import swapio_pkg::*; #()(
   //  |_____/_/\_\ |____/ |_/_/   \_\____|_____|     //
   //                                                 //
   /////////////////////////////////////////////////////
+  
+  logic [11:0] wait_cycles_remaining_d, wait_cycles_remaining_q;
+  logic wait_active_d, wait_active_q;
 
   always_ff @(posedge clk_i or negedge rst_n) begin
     if (!rst_n) begin
       cycle_count_reg <= 'b0;
       flags_reg       <= 'b0;
-    end else if (flags_write_en) begin
-      flags_reg       <= alu_flags;
+      wait_cycles_remaining_q <= 'b1;
+      wait_active_q           <= 'b0;
+    end else begin
+      if (flags_write_en) begin
+        flags_reg       <= alu_flags;
+      end
+      wait_cycles_remaining_q <= wait_cycles_remaining_d;
+      wait_active_q           <= wait_active_d;
     end
   end
+
+  assign stall = wait_active_d;
 
   always_comb begin : blockName
     reg_file_data_i = 'b0;
@@ -140,258 +151,274 @@ module swapio_execute import swapio_pkg::*; #()(
     alu_flags_w_en  = 'b0;
     pc_next_o       = pc_i + 'd1;
 
-    stall           = 'b0;
+    wait_cycles_remaining_d = wait_cycles_remaining_q;
+    wait_active_d           = wait_active_q;
 
-    case (operation_operand)
-      INSTR_NOP: begin
-        // we do nothing
+    if (execute_en_i) begin
+      if (!wait_active_d) begin
+        case (operation_operand)
+          INSTR_NOP: begin
+            // we do nothing
+          end
+
+          INSTR_IRQ: begin
+            // WARN:
+            // Leave it for now
+            // I cant think of a reason
+            // why we would need it at the beginning
+          end
+
+          INSTR_JMP: begin
+            pc_next_o  = addr_operand;
+          end
+
+          INSTR_JZ: begin
+            pc_next_o = flags_reg[FLAGS_Z_LSB]? addr_operand : pc_i + 'd1;
+          end
+
+          INSTR_JNZ: begin
+            pc_next_o = (!flags_reg[FLAGS_Z_LSB])? addr_operand : pc_i + 'd1;
+          end
+
+          INSTR_SET: begin
+            reg_file_data_i = {16'b0, imm_operand};
+            reg_file_w_en   = 1'b1;
+          end
+
+          INSTR_MOV: begin
+            reg_file_data_i = reg_file_o1;
+            reg_file_w_en   = 'b1;
+          end
+
+          INSTR_IN: begin
+            //TODO need a synchronizer
+            // gpio_out_i[pin_operand] =
+          end
+
+          INSTR_OUT: begin
+            //TODO
+          end
+
+          INSTR_PUSH: begin
+            /*
+            * Push to the TX buffer
+            */
+            //TODO
+          end
+
+          INSTR_PULL: begin
+            /*
+            * Pull from the RX buffer
+            */
+            //TODO
+          end
+
+          INSTR_WAIT_LOW: begin
+            // need a synchronizer
+            //TODO
+          end
+
+          INSTR_WAIT_HIGH: begin
+            // need a synchronizer
+            //TODO
+          end
+
+          INSTR_PIN_SET: begin
+            //TODO
+          end
+
+          INSTR_PIN_CLEAR: begin
+            //TODO
+          end
+
+          INSTR_PIN_DIR: begin
+            //TODO
+          end
+
+          INSTR_PIN_READ: begin
+            //TODO need a synchronizer
+            // gpio_out_i[pin_operand] =
+          end
+
+          INSTR_PIN_WRITE: begin
+            //TODO
+          end
+
+          INSTR_WAIT_CYCLES: begin
+            wait_cycles_remaining_d = imm_operand;
+            wait_active_d           = imm_operand > 'b0;
+          end
+
+          INSTR_DEC: begin
+            alu_op = ALU_DEC;
+
+            alu_src1 = reg_file_o1;
+            alu_src2 = reg_file_o2;
+
+            reg_file_data_i = alu_value;
+            reg_file_w_en   = 'b1;
+          end
+
+          INSTR_INC: begin
+            alu_op = ALU_INC;
+
+            alu_src1 = reg_file_o1;
+            alu_src2 = reg_file_o2;
+
+            reg_file_data_i = alu_value;
+            reg_file_w_en   = 'b1;
+          end
+
+          INSTR_XOR: begin
+            alu_op = ALU_XOR;
+
+            alu_src1 = reg_file_o1;
+            alu_src2 = reg_file_o2;
+
+            reg_file_data_i = alu_value;
+            reg_file_w_en   = 'b1;
+          end
+
+          INSTR_AND: begin
+            alu_op = ALU_AND;
+
+            alu_src1 = reg_file_o1;
+            alu_src2 = reg_file_o2;
+
+            reg_file_data_i = alu_value;
+            reg_file_w_en   = 'b1;
+          end
+
+          INSTR_SHL: begin
+            alu_op = ALU_SHL;
+
+            alu_src1 = reg_file_o1;
+            alu_src2 = reg_file_o2;
+
+            reg_file_data_i = alu_value;
+            reg_file_w_en   = 'b1;
+          end
+
+          INSTR_SHR: begin
+            alu_op = ALU_SHR;
+
+            alu_src1 = reg_file_o1;
+            alu_src2 = reg_file_o2;
+
+            reg_file_data_i = alu_value;
+            reg_file_w_en   = 'b1;
+          end
+
+          INSTR_CMP: begin
+            alu_op = ALU_CMP;
+
+            alu_src1 = reg_file_o2;
+            alu_src2 = reg_file_o1;
+
+            reg_file_data_i = alu_value;
+            alu_flags_w_en  = 'b1;
+          end
+
+          INSTR_BTST: begin
+            alu_op = ALU_BTST;
+
+            alu_src1 = reg_file_o1;
+            alu_src2 = reg_file_o2;
+
+            reg_file_data_i = alu_value;
+            alu_flags_w_en  = 'b1;
+          end
+
+          INSTR_XORI: begin
+            alu_op = ALU_XOR;
+
+            alu_src1 = imm_operand;
+            alu_src2 = reg_file_o2;
+
+            reg_file_data_i = alu_value;
+            reg_file_w_en   = 'b1;
+          end
+
+          INSTR_ANDI: begin
+            alu_op = ALU_AND;
+
+            alu_src1 = imm_operand;
+            alu_src2 = reg_file_o2;
+
+            reg_file_data_i = alu_value;
+            reg_file_w_en   = 'b1;
+          end
+
+          INSTR_SHLI: begin
+            alu_op = ALU_SHL;
+
+            alu_src1 = reg_file_o2;
+            alu_src2 = {16'b0, imm_operand};
+
+            reg_file_data_i = alu_value;
+            reg_file_w_en   = 'b1;
+          end
+
+          INSTR_SHRI: begin
+            alu_op = ALU_SHR;
+
+            alu_src1 = reg_file_o2;
+            alu_src2 = {16'b0, imm_operand};
+
+            reg_file_data_i = alu_value;
+            reg_file_w_en   = 'b1;
+          end
+
+          INSTR_CMPI: begin
+            alu_op = ALU_CMP;
+
+            alu_src1 = reg_file_o2;
+            alu_src2 = {16'b0, imm_operand};
+
+            reg_file_data_i = alu_value;
+            alu_flags_w_en  = 'b1;
+          end
+
+          INSTR_BTSTI: begin
+            alu_op = ALU_BTST;
+
+            alu_src1 = imm_operand;
+            alu_src2 = reg_file_o2;
+
+            reg_file_data_i = alu_value;
+            alu_flags_w_en  = 'b1;
+          end
+
+          INSTR_CSRR: begin
+            reg_file_data_i = csr_data_o;
+            reg_file_w_en   = 'b1;
+          end
+
+          INSTR_CSRW: begin
+            csr_w_en          = 'b1;
+          end
+
+          INSTR_LOAD: begin
+            /* WARN:
+            * FOR FUTURE
+            */
+          end
+
+          INSTR_STORE: begin
+            /* WARN:
+            * FOR FUTURE
+            */
+          end
+          default: begin
+          end
+        endcase
+      end else begin
+          if (wait_cycles_remaining_d > 'b0) begin
+            wait_cycles_remaining_d = wait_cycles_remaining_d - 'b1;
+          end
+          wait_active_d = wait_cycles_remaining_d > 'b0;
       end
-
-      INSTR_IRQ: begin
-        // WARN:
-        // Leave it for now
-        // I cant think of a reason
-        // why we would need it at the beginning
-      end
-
-      INSTR_JMP: begin
-        pc_next_o  = addr_operand;
-      end
-
-      INSTR_JZ: begin
-        pc_next_o = flags_reg[FLAGS_Z_LSB]? addr_operand : pc_i + 'd1;
-      end
-
-      INSTR_JNZ: begin
-        pc_next_o = (!flags_reg[FLAGS_Z_LSB])? addr_operand : pc_i + 'd1;
-      end
-
-      INSTR_SET: begin
-        reg_file_data_i = {16'b0, imm_operand};
-        reg_file_w_en   = 1'b1;
-      end
-
-      INSTR_MOV: begin
-        reg_file_data_i = reg_file_o1;
-        reg_file_w_en   = 'b1;
-      end
-
-      INSTR_IN: begin
-        // need a synchronizer
-        // gpio_out_i[pin_operand] =
-      end
-
-      INSTR_OUT: begin
-
-      end
-
-      INSTR_PUSH: begin
-        /*
-        * Push to the TX buffer
-        */
-      end
-
-      INSTR_PULL: begin
-        /*
-        * Pull from the RX buffer
-        */
-      end
-
-      INSTR_WAIT_LOW: begin
-        // need a synchronizer
-      end
-
-      INSTR_WAIT_HIGH: begin
-        // need a synchronizer
-      end
-
-      INSTR_PIN_SET: begin
-
-      end
-
-      INSTR_PIN_CLEAR: begin
-
-      end
-
-      INSTR_PIN_DIR: begin
-
-      end
-
-      INSTR_PIN_READ: begin
-
-      end
-
-      INSTR_PIN_WRITE: begin
-
-      end
-
-      INSTR_WAIT_CYCLES: begin
-
-      end
-
-      INSTR_DEC: begin
-        alu_op = ALU_DEC;
-
-        alu_src1 = reg_file_o1;
-        alu_src2 = reg_file_o2;
-
-        reg_file_data_i = alu_value;
-        reg_file_w_en   = 'b1;
-      end
-
-      INSTR_INC: begin
-        alu_op = ALU_INC;
-
-        alu_src1 = reg_file_o1;
-        alu_src2 = reg_file_o2;
-
-        reg_file_data_i = alu_value;
-        reg_file_w_en   = 'b1;
-      end
-
-      INSTR_XOR: begin
-        alu_op = ALU_XOR;
-
-        alu_src1 = reg_file_o1;
-        alu_src2 = reg_file_o2;
-
-        reg_file_data_i = alu_value;
-        reg_file_w_en   = 'b1;
-      end
-
-      INSTR_AND: begin
-        alu_op = ALU_AND;
-
-        alu_src1 = reg_file_o1;
-        alu_src2 = reg_file_o2;
-
-        reg_file_data_i = alu_value;
-        reg_file_w_en   = 'b1;
-      end
-
-      INSTR_SHL: begin
-        alu_op = ALU_SHL;
-
-        alu_src1 = reg_file_o1;
-        alu_src2 = reg_file_o2;
-
-        reg_file_data_i = alu_value;
-        reg_file_w_en   = 'b1;
-      end
-
-      INSTR_SHR: begin
-        alu_op = ALU_SHR;
-
-        alu_src1 = reg_file_o1;
-        alu_src2 = reg_file_o2;
-
-        reg_file_data_i = alu_value;
-        reg_file_w_en   = 'b1;
-      end
-
-      INSTR_CMP: begin
-        alu_op = ALU_CMP;
-
-        alu_src1 = reg_file_o2;
-        alu_src2 = reg_file_o1;
-
-        reg_file_data_i = alu_value;
-        alu_flags_w_en  = 'b1;
-      end
-
-      INSTR_BTST: begin
-        alu_op = ALU_BTST;
-
-        alu_src1 = reg_file_o1;
-        alu_src2 = reg_file_o2;
-
-        reg_file_data_i = alu_value;
-        alu_flags_w_en  = 'b1;
-      end
-
-      INSTR_XORI: begin
-        alu_op = ALU_XOR;
-
-        alu_src1 = imm_operand;
-        alu_src2 = reg_file_o2;
-
-        reg_file_data_i = alu_value;
-        reg_file_w_en   = 'b1;
-      end
-
-      INSTR_ANDI: begin
-        alu_op = ALU_AND;
-
-        alu_src1 = imm_operand;
-        alu_src2 = reg_file_o2;
-
-        reg_file_data_i = alu_value;
-        reg_file_w_en   = 'b1;
-      end
-
-      INSTR_SHLI: begin
-        alu_op = ALU_SHL;
-
-        alu_src1 = reg_file_o2;
-        alu_src2 = {16'b0, imm_operand};
-
-        reg_file_data_i = alu_value;
-        reg_file_w_en   = 'b1;
-      end
-
-      INSTR_SHRI: begin
-        alu_op = ALU_SHR;
-
-        alu_src1 = reg_file_o2;
-        alu_src2 = {16'b0, imm_operand};
-
-        reg_file_data_i = alu_value;
-        reg_file_w_en   = 'b1;
-      end
-
-      INSTR_CMPI: begin
-        alu_op = ALU_CMP;
-
-        alu_src1 = reg_file_o2;
-        alu_src2 = {16'b0, imm_operand};
-
-        reg_file_data_i = alu_value;
-        alu_flags_w_en  = 'b1;
-      end
-
-      INSTR_BTSTI: begin
-        alu_op = ALU_BTST;
-
-        alu_src1 = imm_operand;
-        alu_src2 = reg_file_o2;
-
-        reg_file_data_i = alu_value;
-        alu_flags_w_en  = 'b1;
-      end
-
-      INSTR_CSRR: begin
-        reg_file_data_i = csr_data_o;
-        reg_file_w_en   = 'b1;
-      end
-
-      INSTR_CSRW: begin
-        csr_w_en          = 'b1;
-      end
-
-      INSTR_LOAD: begin
-        /* WARN:
-         * FOR FUTURE
-         */
-      end
-
-      INSTR_STORE: begin
-        /* WARN:
-         * FOR FUTURE
-         */
-      end
-      default: begin
-      end
-    endcase
+    end
   end
 
   // Handles R/W to the CSR registers
