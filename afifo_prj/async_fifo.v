@@ -35,19 +35,26 @@ module async_fifo #(
  );
   wire [ADDRSIZE-1:0] waddr, raddr;
   wire [ADDRSIZE:0]   wptr, rptr, wrptr2, rwptr2;
+  wire write_en;
+
+  assign write_en = winc && !wfull;
   
-  sync_r2w sync_r2w(
-    .wrptr2(wrptr2),
-    .rptr(rptr),
-    .wclk(wclk),
-    .wrst_n(wrst_n)
+  sync_r2w #(
+      .ADDRSIZE(ADDRSIZE)
+  ) u_sync_r2w (
+      .wrptr2(wrptr2),
+      .rptr(rptr),
+      .wclk(wclk),
+      .wrst_n(wrst_n)
   );
-  
-  sync_w2r sync_w2r(
-    .rwptr2(rwptr2),
-    .wptr(wptr),
-    .rclk(rclk),
-    .rrst_n(rrst_n)
+
+  sync_w2r #(
+      .ADDRSIZE(ADDRSIZE)
+  ) u_sync_w2r (
+      .rwptr2(rwptr2),
+      .wptr(wptr),
+      .rclk(rclk),
+      .rrst_n(rrst_n)
   );
   
   fifo_memory #(
@@ -58,7 +65,7 @@ module async_fifo #(
     .wr_data(wdata),
     .rd_addr(raddr),
     .wr_addr(waddr),
-    .wclk_en(winc),
+    .wclk_en(write_en),
     .wclk(wclk)
   );
   

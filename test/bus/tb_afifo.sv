@@ -1,105 +1,232 @@
+
 `timescale 1ns/1ps
+
 module tb_afifo;
-  localparam integer DSIZE = 8;
-  localparam integer ASIZE = 4;
-  localparam integer DEPTH = (1 << ASIZE);
+
+  localparam DATAWIDTH = 8;
+  localparam ADDRSIZE  = 4;
+  localparam DEPTH     = (1 << ADDRSIZE);
 
   reg wclk = 0;
   reg rclk = 0;
-  always #10 wclk = ~wclk;   // 50 MHz write clock, SPI-side example
-  always #7  rclk = ~rclk;   // ~71.4 MHz read clock, unrelated phase/rate
+  reg wrst_n = 0;
+  reg rrst_n = 0;
 
-  reg wrst_n = 0, rrst_n = 0;
-  reg wr = 0, rd = 0;
-  reg [DSIZE-1:0] wdata = 0;
-  wire [DSIZE-1:0] rdata;
-  wire full, empty;
-  integer sent = 0, received = 0;
-  integer i;
+  reg  [DATAWIDTH-1:0] wdata = 0;
+  reg  winc = 0;
+  reg  rinc = 0;
 
-  afifo #(.DSIZE(DSIZE), .ASIZE(ASIZE)) dut (
-      .i_wclk(wclk), .i_wrst_n(wrst_n), .i_wr(wr), .i_wdata(wdata), .o_wfull(full),
-      .i_rclk(rclk), .i_rrst_n(rrst_n), .i_rd(rd), .o_rdata(rdata), .o_rempty(empty)
+  wire [DATAWIDTH-1:0] rdata;
+  wire wfull, rempty;
+
+  // Independent clock domains
+  always #5 wclk = ~wclk;  // 100 MHz
+  always #7 rclk = ~rclk;  // ~71.4 MHz
+
+  async_fifo #(
+    .DATAWIDTH(DATAWIDTH),
+    .ADDRSIZE(ADDRSIZE)
+  ) dut (
+    .wdata(wdata),
+    .winc(winc),
+    .wclk(wclk),
+    .wrst_n(wrst_n),
+    .rinc(rinc),
+    .rclk(rclk),
+    .rrst_n(rrst_n),
+    .rdata(rdata),
+    .wfull(wfull),
+    .rempty(rempty)
   );
 
-  // Hold valid and data across a rising write edge.
-  task automatic push(input [7:0] value);
+  // Reference FIFO
+  reg [DATAWIDTH-1:0] expected[$];
+  reg [DATAWIDTH-1:0] item;
+
+  integer writes = 0;
+  integer reads  = 0;
+  integer errors = 0;
+
+  // Write scoreboard:
+  // Sample acceptance at the write clock edge.
+  always @(posedge wclk) begin
+    if (wrst_n && winc && !wfull) begin
+      expected.push_back(wdata);
+      writes = writes + 1;
+    end
+  end
+
+  // Read scoreboard:
+  // Async-read memory: sample data before
+  // the read pointer changes at this edge.
+  always @(posedge rclk) begin
+    if (rrst_n && rinc && !rempty) begin
+      if (expected.size() == 0) begin
+        $error("Unexpected read: scoreboard empty");
+        errors = errors + 1;
+      end else begin
+        item = expected.pop_front();
+
+        if (rdata !== item) begin
+          $error("Read mismatch: got=%02h expected=%02h",
+                 rdata, item);
+          errors = errors + 1;
+        end
+        reads = reads + 1;
+      end
+    end
+  end
+
+  // Drive signals on falling edges to avoid races.
+  task write_byte(input [DATAWIDTH-1:0] data);
     begin
       @(negedge wclk);
-      while (full) @(negedge wclk);
-      wr = 1;
-      wdata = value;
+      wdata = data;
+      winc = 1;
       @(negedge wclk);
-      wr = 0;
-      sent = sent + 1;
+      winc = 0;
     end
   endtask
 
-  // FWFT: the current head word is already visible before asserting rd.
-  task automatic pop_check(input [7:0] expected);
-    reg [7:0] observed;
+  task read_byte;
     begin
       @(negedge rclk);
-      while (empty) @(negedge rclk);
-      observed = rdata;
-      if (observed !== expected)
-        $fatal(1, "Mismatch at read %0d: expected %02x, got %02x", received, expected, observed);
-      rd = 1;
+      rinc = 1;
       @(negedge rclk);
-      rd = 0;
-      received = received + 1;
+      rinc = 0;
     end
   endtask
+
+  task wait_full;
+    integer t;
+    begin
+      t = 0;
+      while (!wfull && t < 100) begin
+        @(negedge wclk);
+        t = t + 1;
+      end
+      if (!wfull)
+        $fatal(1, "Timeout waiting for FULL");
+    end
+  endtask
+
+  task wait_empty;
+    integer t;
+    begin
+      t = 0;
+      while (!rempty && t < 100) begin
+        @(negedge rclk);
+        t = t + 1;
+      end
+      if (!rempty)
+        $fatal(1, "Timeout waiting for EMPTY");
+    end
+  endtask
+
+  integer i;
 
   initial begin
-    $dumpfile("build/afifo.vcd");
+    $dumpfile("async_fifo.vcd");
     $dumpvars(0, tb_afifo);
 
-    // Independent, synchronous-to-local-clock reset deassertion.
-    repeat (4) @(negedge wclk);
+    // Reset both clock domains
+    repeat (5) @(negedge wclk);
     wrst_n = 1;
-    repeat (4) @(negedge rclk);
     rrst_n = 1;
-    repeat (4) @(negedge rclk);
-    if (full !== 1'b0 || empty !== 1'b1)
-      $fatal(1, "Incorrect FIFO state after reset");
 
-    $display("TEST 1: Fill FIFO to capacity");
+    repeat (5) @(negedge rclk);
+
+    if (!rempty || wfull)
+      $fatal(1, "Incorrect reset flags");
+
+    // TEST 1: Fill FIFO
+    $display("[TEST 1] Fill FIFO");
+
     for (i = 0; i < DEPTH; i = i + 1)
-      push(i[7:0]);
-    @(negedge wclk);
-    if (full !== 1'b1) $fatal(1, "FIFO did not assert full");
+      write_byte(i + 8'h20);
 
-    $display("TEST 2: Drain and verify ordering");
+    wait_full();
+
+    if (expected.size() != DEPTH)
+      $fatal(1, "Incorrect FIFO occupancy");
+
+    // TEST 2: Overflow attempt
+    $display("[TEST 2] Overflow protection");
+
+    repeat (4)
+      write_byte(8'hFF);
+
+    if (expected.size() != DEPTH)
+      $fatal(1, "Overflow changed occupancy");
+
+    // TEST 3: Drain FIFO
+    $display("[TEST 3] Drain FIFO");
+
     for (i = 0; i < DEPTH; i = i + 1)
-      pop_check(i[7:0]);
-    repeat (4) @(negedge rclk);
-    if (empty !== 1'b1) $fatal(1, "FIFO did not assert empty");
+      read_byte();
 
-    $display("TEST 3: Concurrent reads/writes and pointer wraparound");
+    wait_empty();
+
+    if (expected.size() != 0)
+      $fatal(1, "FIFO not completely drained");
+
+    // TEST 4: Underflow attempt
+    $display("[TEST 4] Underflow protection");
+
+    repeat (4)
+      read_byte();
+
+    if (expected.size() != 0)
+      $fatal(1, "Underflow changed occupancy");
+
+    // TEST 5: Concurrent randomized traffic
+    $display("[TEST 5] Concurrent random traffic");
+
     fork
-      begin : producer
-        integer j;
-        for (j = 0; j < 128; j = j + 1)
-          push((j ^ 8'hA5) & 8'hFF);
+      begin : writer
+        repeat (500) begin
+          @(negedge wclk);
+          winc  = ($urandom_range(0, 3) != 0);
+          wdata = $urandom;
+        end
+        @(negedge wclk);
+        winc = 0;
       end
-      begin : consumer
-        integer j;
-        // Deliberately allow FIFO to fill before consumer starts.
-        repeat (16) @(negedge rclk);
-        for (j = 0; j < 128; j = j + 1)
-          pop_check((j ^ 8'hA5) & 8'hFF);
+
+      begin : reader
+        repeat (500) begin
+          @(negedge rclk);
+          rinc = ($urandom_range(0, 3) != 0);
+        end
+        @(negedge rclk);
+        rinc = 0;
       end
     join
-    repeat (4) @(negedge rclk);
-    if (!empty) $fatal(1, "FIFO not empty at end of test");
-    if (sent != received) $fatal(1, "Counters differ: %0d != %0d", sent, received);
-    $display("PASS: %0d bytes written and read correctly", received);
+
+    // Drain remaining data
+    // Wait for pointer synchronization.
+    repeat (5) @(negedge rclk);
+
+    while (!rempty)
+      read_byte();
+
+    wait_empty();
+
+    if (expected.size() != 0)
+      $fatal(1, "Scoreboard contains unread data");
+
+    if (errors == 0)
+      $display("PASS: writes=%0d reads=%0d",
+               writes, reads);
+    else
+      $fatal(1, "FAIL: %0d errors", errors);
+
     $finish;
   end
 
   initial begin
-    #100000;
-    $fatal(1, "Timeout / deadlock");
+    #200000;
+    $fatal(1, "Global simulation timeout");
   end
+
 endmodule
