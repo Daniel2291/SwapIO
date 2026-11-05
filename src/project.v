@@ -17,14 +17,14 @@ module tt_um_swapio (
     input wire        clk,                // System clock
     input wire        rst_n               // reset_n - low to reset
 );
-  wire gpio_uio_in_synchronized;
+  reg [7:0] gpio_uio_in_synchronized;
 
   //synchronize the uio_in signal
   swapio_gpio_sync gpio_sync (
     .clk_i(clk),
 
-    .uio_in_i(uio_in),
-    .gpio_uio_in_synchronized_o(gpio_uio_in_synchronized)
+    .gpio_async_i(uio_in),
+    .gpio_sync_o(gpio_uio_in_synchronized)
   );
 
   swapio_core u_core (

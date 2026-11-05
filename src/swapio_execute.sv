@@ -71,9 +71,8 @@ module swapio_execute import swapio_pkg::*; #()(
   //NOTE: PC is defined in swapio_core
 
   // GPIO registers
-  logic [7:0]       gpio_out_reg;     // RO
-  logic [7:0]       gpio_oe_reg;      // RO
-  logic [7:0]       gpio_in_reg;      // RO
+  logic [7:0]       gpio_out_reg_d, gpio_out_reg_q;
+  logic [7:0]       gpio_oe_reg_d, gpio_oe_reg_q;
 
   logic [31:0]      cycle_count_reg;
   logic [3:0]       flags_reg;
@@ -130,16 +129,25 @@ module swapio_execute import swapio_pkg::*; #()(
       flags_reg       <= 'b0;
       wait_cycles_remaining_q <= 'b1;
       wait_active_q           <= 'b0;
+
+      gpio_out_reg_q          <= 'b0;
+      gpio_oe_reg_q           <= 'b0;
     end else begin
       if (flags_write_en) begin
         flags_reg       <= alu_flags;
       end
       wait_cycles_remaining_q <= wait_cycles_remaining_d;
       wait_active_q           <= wait_active_d;
+
+      gpio_out_reg_q          <= gpio_out_reg_d;
+      gpio_oe_reg_q           <= gpio_oe_reg_d;
     end
   end
 
-  assign stall = wait_active_d;
+  assign stall   = wait_active_d;
+
+  assign gpio_oe = gpio_oe_reg_q;
+  assign gpio_out = gpio_out_reg_q;
 
   always_comb begin : blockName
     reg_file_data_i = 'b0;
@@ -150,6 +158,9 @@ module swapio_execute import swapio_pkg::*; #()(
     alu_op          = ALU_DEC;
     alu_flags_w_en  = 'b0;
     pc_next_o       = pc_i + 'd1;
+
+    gpio_out_reg_d  = gpio_out_reg_q;
+    gpio_oe_reg_d   = gpio_oe_reg_q;
 
     wait_cycles_remaining_d = wait_cycles_remaining_q;
     wait_active_d           = wait_active_q;
@@ -222,24 +233,25 @@ module swapio_execute import swapio_pkg::*; #()(
           end
 
           INSTR_PIN_SET: begin
-            //TODO
+            gpio_out_reg_d = mask_operand;
           end
 
           INSTR_PIN_CLEAR: begin
             //TODO
+            //probably remove the instruction from the ISA
           end
 
           INSTR_PIN_DIR: begin
-            //TODO
+            gpio_oe_reg_d = mask_operand;
           end
 
           INSTR_PIN_READ: begin
-            //TODO need a synchronizer
-            // gpio_out_i[pin_operand] =
+            reg_file_data_i = {31'b0, gpio_in[pin_operand]};
+            reg_file_w_en   = 1'b1;
           end
 
           INSTR_PIN_WRITE: begin
-            //TODO
+            gpio_out_reg_d[pin_operand] = reg_file_o1[0];
           end
 
           INSTR_WAIT_CYCLES: begin
@@ -447,9 +459,10 @@ module swapio_execute import swapio_pkg::*; #()(
     .sys_status_i(sys_status_reg),
     .osr_i(osr),
     .isr_i(isr),
-    .gpio_out_i(gpio_out_reg),
-    .gpio_oe_i(gpio_oe_reg),
-    .gpio_in_i(gpio_in_reg),
+    .gpio_out_i(gpio_out),
+    .gpio_oe_i(gpio_oe),
+    .gpio_in_i(gpio_in),
+
     .gpio_od_mask_o(), //TODO: maybe expose to outside module
     .cycle_count_i(cycle_count_reg),
     .flags_i(flags_reg),

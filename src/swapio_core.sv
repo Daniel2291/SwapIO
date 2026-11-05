@@ -44,9 +44,9 @@ module swapio_core (
 
     .instruction_retire_o(instruction_retire),
 
-    .gpio_in(gpio_in),
-    .gpio_out(gpio_out),
-    .gpio_oe(gpio_oe)
+    .gpio_in(gpio_uio_in),
+    .gpio_out(gpio_uio_out),
+    .gpio_oe(gpio_uio_oe)
   );
 
   always @* begin
@@ -56,7 +56,6 @@ module swapio_core (
   always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
       pc      <= 9'd0;
-      pc_next <= 9'd0;
     end else if (instruction_retire) begin
       pc      <= pc_next;
     end
