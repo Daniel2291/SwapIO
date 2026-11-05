@@ -5,16 +5,12 @@
 module swapio_core (
   input  logic        clk,
   input  logic        rst_n,
-  input  logic        bus_valid,
-  input  logic        bus_write,
-  input  logic [7:0]  bus_addr,
-  input  logic [31:0] bus_wdata,
-  output logic        bus_ready,
-  output logic [31:0] bus_rdata,
 
-  input  logic [7:0]  gpio_in,
-  output logic [7:0]  gpio_out,
-  output logic [7:0]  gpio_oe
+  // https://raw.githubusercontent.com/TinyTapeout/ttihp-verilog-template/main/src/project.v
+  // these are the default clock signals
+  input  logic [7:0]  gpio_uio_in,
+  output logic [7:0]  gpio_uio_out,
+  output logic [7:0]  gpio_uio_oe
 );
   // reg [15:0] imem [0:31];
 

@@ -214,13 +214,11 @@ module swapio_execute import swapio_pkg::*; #()(
           end
 
           INSTR_WAIT_LOW: begin
-            // need a synchronizer
-            //TODO
+            wait_active_d = gpio_in[pin_operand] == 'b1;
           end
 
           INSTR_WAIT_HIGH: begin
-            // need a synchronizer
-            //TODO
+            wait_active_d = gpio_in[pin_operand] == 'b0;
           end
 
           INSTR_PIN_SET: begin
@@ -262,18 +260,18 @@ module swapio_execute import swapio_pkg::*; #()(
           INSTR_INC: begin
             alu_op = ALU_INC;
 
-            alu_src1 = reg_file_o1;
-            alu_src2 = reg_file_o2;
+            alu_src1        = reg_file_o1;
+            alu_src2        = reg_file_o2;
 
             reg_file_data_i = alu_value;
             reg_file_w_en   = 'b1;
           end
 
           INSTR_XOR: begin
-            alu_op = ALU_XOR;
+            alu_op          = ALU_XOR;
 
-            alu_src1 = reg_file_o1;
-            alu_src2 = reg_file_o2;
+            alu_src1        = reg_file_o1;
+            alu_src2        = reg_file_o2;
 
             reg_file_data_i = alu_value;
             reg_file_w_en   = 'b1;
@@ -413,10 +411,22 @@ module swapio_execute import swapio_pkg::*; #()(
           end
         endcase
       end else begin
-          if (wait_cycles_remaining_d > 'b0) begin
-            wait_cycles_remaining_d = wait_cycles_remaining_d - 'b1;
+        case (operation_operand)
+          INSTR_WAIT_CYCLES: begin
+            if (wait_cycles_remaining_d > 'b0) begin
+              wait_cycles_remaining_d = wait_cycles_remaining_d - 'b1;
+            end
+            wait_active_d = wait_cycles_remaining_d > 'b0;
           end
-          wait_active_d = wait_cycles_remaining_d > 'b0;
+          INSTR_WAIT_HIGH: begin
+            wait_active_d = gpio_in[pin_operand] == 'b0;
+          end
+          INSTR_WAIT_LOW: begin
+            wait_active_d = gpio_in[pin_operand] == 'b1;
+          end
+          default: begin
+          end
+        endcase
       end
     end
   end
