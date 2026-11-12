@@ -1,4 +1,4 @@
-module swapio_csr import swapio_kg::*; #()(
+module swapio_csr import swapio_pkg::*; #()(
   input logic         clk_i,
   input logic         rst_n,
 

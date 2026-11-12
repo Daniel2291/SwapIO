@@ -1,14 +1,19 @@
 module swapio_execute import swapio_pkg::*; #()(
-  input logic        clk_i,
-  input logic        rst_n,
+  input logic         clk_i,
+  input logic         rst_n,
 
-  input logic [15:0] insn_i,
-  output logic        pc_o
+  input logic  [15:0] insn_i,
+  input logic  [8: 0] pc_i,
+
+  input  logic        execute_en_i,
+  output logic [8: 0] pc_next_o,
+
+  output logic        instruction_retire_o,
+
+  input  logic [7: 0] gpio_in,
+  output logic [7: 0] gpio_out,
+  output logic [7: 0] gpio_oe
 );
-
-  // Program Counter
-  // 9 bits
-  reg [8:0] pc;
 
   logic [2:0]        src_operand;
   logic [2:0]        dst_operand;
@@ -39,6 +44,16 @@ module swapio_execute import swapio_pkg::*; #()(
   logic [31:0]       reg_file_o1;
   logic [31:0]       reg_file_o2;
 
+
+  logic              stall;
+
+  // set at the end of the file
+  logic reg_file_write_en;
+  logic csr_write_en;
+  logic flags_write_en;
+
+  assign instruction_retire_o = execute_en_i && valid_operand && !stall;
+
   /////////////////////////////////////////////////////////
   //    ____ ____    ____            _     _             //
   //   / ___/ ___|  |  _ \ ___  __ _(_)___| |_ ___ _ __  //
@@ -56,9 +71,8 @@ module swapio_execute import swapio_pkg::*; #()(
   //NOTE: PC is defined in swapio_core
 
   // GPIO registers
-  logic [7:0]       gpio_out_reg;     // RO
-  logic [7:0]       gpio_oe_reg;      // RO
-  logic [7:0]       gpio_in_reg;      // RO
+  logic [7:0]       gpio_out_reg_d, gpio_out_reg_q;
+  logic [7:0]       gpio_oe_reg_d, gpio_oe_reg_q;
 
   logic [31:0]      cycle_count_reg;
   logic [3:0]       flags_reg;
@@ -105,15 +119,35 @@ module swapio_execute import swapio_pkg::*; #()(
   //  |_____/_/\_\ |____/ |_/_/   \_\____|_____|     //
   //                                                 //
   /////////////////////////////////////////////////////
+  
+  logic [11:0] wait_cycles_remaining_d, wait_cycles_remaining_q;
+  logic wait_active_d, wait_active_q;
 
-  always_ff @(posedge clk or negedge rst_n) begin
+  always_ff @(posedge clk_i or negedge rst_n) begin
     if (!rst_n) begin
       cycle_count_reg <= 'b0;
       flags_reg       <= 'b0;
-    end else if (alu_flags_w_en) begin
-      flags_reg       <= alu_flags;
+      wait_cycles_remaining_q <= 'b1;
+      wait_active_q           <= 'b0;
+
+      gpio_out_reg_q          <= 'b0;
+      gpio_oe_reg_q           <= 'b0;
+    end else begin
+      if (flags_write_en) begin
+        flags_reg       <= alu_flags;
+      end
+      wait_cycles_remaining_q <= wait_cycles_remaining_d;
+      wait_active_q           <= wait_active_d;
+
+      gpio_out_reg_q          <= gpio_out_reg_d;
+      gpio_oe_reg_q           <= gpio_oe_reg_d;
     end
   end
+
+  assign stall   = wait_active_d;
+
+  assign gpio_oe = gpio_oe_reg_q;
+  assign gpio_out = gpio_out_reg_q;
 
   always_comb begin : blockName
     reg_file_data_i = 'b0;
@@ -123,245 +157,290 @@ module swapio_execute import swapio_pkg::*; #()(
     alu_src2        = 'b0;
     alu_op          = ALU_DEC;
     alu_flags_w_en  = 'b0;
+    pc_next_o       = pc_i + 'd1;
 
-    case (operation_operand)
-      INSTR_NOP: begin
-        // we do nothing
+    gpio_out_reg_d  = gpio_out_reg_q;
+    gpio_oe_reg_d   = gpio_oe_reg_q;
+
+    wait_cycles_remaining_d = wait_cycles_remaining_q;
+    wait_active_d           = wait_active_q;
+
+    if (execute_en_i) begin
+      if (!wait_active_d) begin
+        case (operation_operand)
+          INSTR_NOP: begin
+            // we do nothing
+          end
+
+          INSTR_IRQ: begin
+            // WARN:
+            // Leave it for now
+            // I cant think of a reason
+            // why we would need it at the beginning
+          end
+
+          INSTR_JMP: begin
+            pc_next_o  = addr_operand;
+          end
+
+          INSTR_JZ: begin
+            pc_next_o = flags_reg[FLAGS_Z_LSB]? addr_operand : pc_i + 'd1;
+          end
+
+          INSTR_JNZ: begin
+            pc_next_o = (!flags_reg[FLAGS_Z_LSB])? addr_operand : pc_i + 'd1;
+          end
+
+          INSTR_SET: begin
+            reg_file_data_i = {16'b0, imm_operand};
+            reg_file_w_en   = 1'b1;
+          end
+
+          INSTR_MOV: begin
+            reg_file_data_i = reg_file_o1;
+            reg_file_w_en   = 'b1;
+          end
+
+          INSTR_IN: begin
+            //TODO need a synchronizer
+            // gpio_out_i[pin_operand] =
+          end
+
+          INSTR_OUT: begin
+            //TODO
+          end
+
+          INSTR_PUSH: begin
+            /*
+            * Push to the TX buffer
+            */
+            //TODO
+          end
+
+          INSTR_PULL: begin
+            /*
+            * Pull from the RX buffer
+            */
+            //TODO
+          end
+
+          INSTR_WAIT_LOW: begin
+            wait_active_d = gpio_in[pin_operand] == 'b1;
+          end
+
+          INSTR_WAIT_HIGH: begin
+            wait_active_d = gpio_in[pin_operand] == 'b0;
+          end
+
+          INSTR_PIN_SET: begin
+            gpio_out_reg_d = mask_operand;
+          end
+
+          INSTR_PIN_CLEAR: begin
+            //TODO
+            //probably remove the instruction from the ISA
+          end
+
+          INSTR_PIN_DIR: begin
+            gpio_oe_reg_d = mask_operand;
+          end
+
+          INSTR_PIN_READ: begin
+            reg_file_data_i = {31'b0, gpio_in[pin_operand]};
+            reg_file_w_en   = 1'b1;
+          end
+
+          INSTR_PIN_WRITE: begin
+            gpio_out_reg_d[pin_operand] = reg_file_o1[0];
+          end
+
+          INSTR_WAIT_CYCLES: begin
+            wait_cycles_remaining_d = imm_operand;
+            wait_active_d           = imm_operand > 'b0;
+          end
+
+          INSTR_DEC: begin
+            alu_op = ALU_DEC;
+
+            alu_src1 = reg_file_o1;
+            alu_src2 = reg_file_o2;
+
+            reg_file_data_i = alu_value;
+            reg_file_w_en   = 'b1;
+          end
+
+          INSTR_INC: begin
+            alu_op = ALU_INC;
+
+            alu_src1        = reg_file_o1;
+            alu_src2        = reg_file_o2;
+
+            reg_file_data_i = alu_value;
+            reg_file_w_en   = 'b1;
+          end
+
+          INSTR_XOR: begin
+            alu_op          = ALU_XOR;
+
+            alu_src1        = reg_file_o1;
+            alu_src2        = reg_file_o2;
+
+            reg_file_data_i = alu_value;
+            reg_file_w_en   = 'b1;
+          end
+
+          INSTR_AND: begin
+            alu_op = ALU_AND;
+
+            alu_src1 = reg_file_o1;
+            alu_src2 = reg_file_o2;
+
+            reg_file_data_i = alu_value;
+            reg_file_w_en   = 'b1;
+          end
+
+          INSTR_SHL: begin
+            alu_op = ALU_SHL;
+
+            alu_src1 = reg_file_o1;
+            alu_src2 = reg_file_o2;
+
+            reg_file_data_i = alu_value;
+            reg_file_w_en   = 'b1;
+          end
+
+          INSTR_SHR: begin
+            alu_op = ALU_SHR;
+
+            alu_src1 = reg_file_o1;
+            alu_src2 = reg_file_o2;
+
+            reg_file_data_i = alu_value;
+            reg_file_w_en   = 'b1;
+          end
+
+          INSTR_CMP: begin
+            alu_op = ALU_CMP;
+
+            alu_src1 = reg_file_o2;
+            alu_src2 = reg_file_o1;
+
+            reg_file_data_i = alu_value;
+            alu_flags_w_en  = 'b1;
+          end
+
+          INSTR_BTST: begin
+            alu_op = ALU_BTST;
+
+            alu_src1 = reg_file_o1;
+            alu_src2 = reg_file_o2;
+
+            reg_file_data_i = alu_value;
+            alu_flags_w_en  = 'b1;
+          end
+
+          INSTR_XORI: begin
+            alu_op = ALU_XOR;
+
+            alu_src1 = imm_operand;
+            alu_src2 = reg_file_o2;
+
+            reg_file_data_i = alu_value;
+            reg_file_w_en   = 'b1;
+          end
+
+          INSTR_ANDI: begin
+            alu_op = ALU_AND;
+
+            alu_src1 = imm_operand;
+            alu_src2 = reg_file_o2;
+
+            reg_file_data_i = alu_value;
+            reg_file_w_en   = 'b1;
+          end
+
+          INSTR_SHLI: begin
+            alu_op = ALU_SHL;
+
+            alu_src1 = reg_file_o2;
+            alu_src2 = {16'b0, imm_operand};
+
+            reg_file_data_i = alu_value;
+            reg_file_w_en   = 'b1;
+          end
+
+          INSTR_SHRI: begin
+            alu_op = ALU_SHR;
+
+            alu_src1 = reg_file_o2;
+            alu_src2 = {16'b0, imm_operand};
+
+            reg_file_data_i = alu_value;
+            reg_file_w_en   = 'b1;
+          end
+
+          INSTR_CMPI: begin
+            alu_op = ALU_CMP;
+
+            alu_src1 = reg_file_o2;
+            alu_src2 = {16'b0, imm_operand};
+
+            reg_file_data_i = alu_value;
+            alu_flags_w_en  = 'b1;
+          end
+
+          INSTR_BTSTI: begin
+            alu_op = ALU_BTST;
+
+            alu_src1 = imm_operand;
+            alu_src2 = reg_file_o2;
+
+            reg_file_data_i = alu_value;
+            alu_flags_w_en  = 'b1;
+          end
+
+          INSTR_CSRR: begin
+            reg_file_data_i = csr_data_o;
+            reg_file_w_en   = 'b1;
+          end
+
+          INSTR_CSRW: begin
+            csr_w_en          = 'b1;
+          end
+
+          INSTR_LOAD: begin
+            /* WARN:
+            * FOR FUTURE
+            */
+          end
+
+          INSTR_STORE: begin
+            /* WARN:
+            * FOR FUTURE
+            */
+          end
+          default: begin
+          end
+        endcase
+      end else begin
+        case (operation_operand)
+          INSTR_WAIT_CYCLES: begin
+            if (wait_cycles_remaining_d > 'b0) begin
+              wait_cycles_remaining_d = wait_cycles_remaining_d - 'b1;
+            end
+            wait_active_d = wait_cycles_remaining_d > 'b0;
+          end
+          INSTR_WAIT_HIGH: begin
+            wait_active_d = gpio_in[pin_operand] == 'b0;
+          end
+          INSTR_WAIT_LOW: begin
+            wait_active_d = gpio_in[pin_operand] == 'b1;
+          end
+          default: begin
+          end
+        endcase
       end
-
-      INSTR_IRQ: begin
-
-      end
-
-      INSTR_JMP: begin
-        
-      end
-
-      INSTR_JZ: begin
-
-      end
-
-      INSTR_JNZ: begin
-
-      end
-
-      INSTR_SET: begin
-        reg_file_data_i = {16'b0, imm_operand};
-        reg_file_w_en   = 1'b1;
-      end
-
-      INSTR_MOV: begin
-        reg_file_data_i = reg_file_o1;
-        reg_file_w_en   = 'b1;
-      end
-
-      INSTR_IN: begin
-
-      end
-
-      INSTR_OUT: begin
-
-      end
-
-      INSTR_PUSH: begin
-
-      end
-
-      INSTR_PULL: begin
-
-      end
-
-      INSTR_WAIT_LOW: begin
-
-      end
-
-      INSTR_WAIT_HIGH: begin
-
-      end
-
-      INSTR_PIN_SET: begin
-
-      end
-
-      INSTR_PIN_CLEAR: begin
-
-      end
-
-      INSTR_PIN_DIR: begin
-
-      end
-
-      INSTR_PIN_READ: begin
-
-      end
-
-      INSTR_PIN_WRITE: begin
-
-      end
-
-      INSTR_WAIT_CYCLES: begin
-
-      end
-
-      INSTR_DEC: begin
-        alu_op = ALU_DEC;
-
-        alu_src1 = reg_file_o1;
-        alu_src2 = reg_file_o2;
-
-        reg_file_data_i = alu_value;
-        reg_file_w_en   = 'b1;
-      end
-
-      INSTR_INC: begin
-        alu_op = ALU_INC;
-
-        alu_src1 = reg_file_o1;
-        alu_src2 = reg_file_o2;
-
-        reg_file_data_i = alu_value;
-        reg_file_w_en   = 'b1;
-      end
-
-      INSTR_XOR: begin
-        alu_op = ALU_XOR;
-
-        alu_src1 = reg_file_o1;
-        alu_src2 = reg_file_o2;
-
-        reg_file_data_i = alu_value;
-        reg_file_w_en   = 'b1;
-      end
-
-      INSTR_AND: begin
-        alu_op = ALU_AND;
-
-        alu_src1 = reg_file_o1;
-        alu_src2 = reg_file_o2;
-
-        reg_file_data_i = alu_value;
-        reg_file_w_en   = 'b1;
-      end
-
-      INSTR_SHL: begin
-        alu_op = ALU_SHL;
-
-        alu_src1 = reg_file_o1;
-        alu_src2 = reg_file_o2;
-
-        reg_file_data_i = alu_value;
-        reg_file_w_en   = 'b1;
-      end
-
-      INSTR_SHR: begin
-        alu_op = ALU_SHR;
-
-        alu_src1 = reg_file_o1;
-        alu_src2 = reg_file_o2;
-
-        reg_file_data_i = alu_value;
-        reg_file_w_en   = 'b1;
-      end
-
-      INSTR_CMP: begin
-        alu_op = ALU_CMP;
-
-        alu_src1 = reg_file_o1;
-        alu_src2 = reg_file_o2;
-
-        reg_file_data_i = alu_value;
-        alu_flags_w_en  = 'b1;
-      end
-
-      INSTR_BTST: begin
-        alu_op = ALU_BTST;
-
-        alu_src1 = reg_file_o1;
-        alu_src2 = reg_file_o2;
-
-        reg_file_data_i = alu_value;
-        alu_flags_w_en  = 'b1;
-      end
-
-      INSTR_XORI: begin
-        alu_op = ALU_XOR;
-
-        alu_src1 = imm_operand;
-        alu_src2 = reg_file_o2;
-
-        reg_file_data_i = alu_value;
-        reg_file_w_en   = 'b1;
-      end
-
-      INSTR_ANDI: begin
-        alu_op = ALU_AND;
-
-        alu_src1 = imm_operand;
-        alu_src2 = reg_file_o2;
-
-        reg_file_data_i = alu_value;
-        reg_file_w_en   = 'b1;
-      end
-
-      INSTR_SHLI: begin
-        alu_op = ALU_SHL;
-
-        alu_src1 = reg_file_o2;
-        alu_src2 = {16'b0, imm_operand};
-
-        reg_file_data_i = alu_value;
-        reg_file_w_en   = 'b1;
-      end
-
-      INSTR_SHRI: begin
-        alu_op = ALU_SHR;
-
-        alu_src1 = reg_file_o2;
-        alu_src2 = {16'b0, imm_operand};
-
-        reg_file_data_i = alu_value;
-        reg_file_w_en   = 'b1;
-      end
-
-      INSTR_CMPI: begin
-        alu_op = ALU_CMP;
-
-        alu_src1 = imm_operand;
-        alu_src2 = reg_file_o2;
-
-        reg_file_data_i = alu_value;
-        alu_flags_w_en  = 'b1;
-      end
-
-      INSTR_BTSTI: begin
-        alu_op = ALU_BTST;
-
-        alu_src1 = imm_operand;
-        alu_src2 = reg_file_o2;
-
-        reg_file_data_i = alu_value;
-        alu_flags_w_en  = 'b1;
-      end
-
-      INSTR_CSRR: begin
-        reg_file_data_i = csr_data_o;
-        reg_file_w_en   = 'b1;
-      end
-
-      INSTR_CSRW: begin
-        csr_w_en          = 'b1;
-      end
-
-      INSTR_LOAD: begin
-        //FOR FUTURE
-      end
-
-      INSTR_STORE: begin
-        //FOR FUTURE
-      end
-      default: begin
-      end
-    endcase
+    end
   end
 
   // Handles R/W to the CSR registers
@@ -370,7 +449,7 @@ module swapio_execute import swapio_pkg::*; #()(
     .rst_n(rst_n),
 
     .addr_i(addr_operand),
-    .w_enable_i(csr_w_en),
+    .w_enable_i(csr_write_en),
 
     .w_data_i(reg_file_o1),
     .r_data_o(csr_data_o),
@@ -380,9 +459,10 @@ module swapio_execute import swapio_pkg::*; #()(
     .sys_status_i(sys_status_reg),
     .osr_i(osr),
     .isr_i(isr),
-    .gpio_out_i(gpio_out_reg),
-    .gpio_oe_i(gpio_oe_reg),
-    .gpio_in_i(gpio_in_reg),
+    .gpio_out_i(gpio_out),
+    .gpio_oe_i(gpio_oe),
+    .gpio_in_i(gpio_in),
+
     .gpio_od_mask_o(), //TODO: maybe expose to outside module
     .cycle_count_i(cycle_count_reg),
     .flags_i(flags_reg),
@@ -396,7 +476,7 @@ module swapio_execute import swapio_pkg::*; #()(
     .clk_i(clk_i),
     .rst_n(rst_n),
 
-    .w_en_i(reg_file_w_en),
+    .w_en_i(reg_file_write_en),
     .r_addr1_i(src_operand),
     .r_addr2_i(dst_operand),
 
@@ -406,5 +486,9 @@ module swapio_execute import swapio_pkg::*; #()(
     .data1_o(reg_file_o1),
     .data2_o(reg_file_o2)
   );
+
+  assign reg_file_write_en = instruction_retire_o && reg_file_w_en;
+  assign csr_write_en      = instruction_retire_o && csr_w_en;
+  assign flags_write_en    = instruction_retire_o && alu_flags_w_en;
 
 endmodule

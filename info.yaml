@@ -1,16 +1,24 @@
 # SwapIO — Jane Street / Tiny Tapeout CMOS5L target.
 project:
   title: "SwapIO"
-  author: ""  # Fill in before submission
+  author: "" # Fill in before submission
   discord: ""
   description: "Programmable I/O sequencer (initial demonstrator)"
   language: "Verilog"
   clock_hz: 50000000
-  tiles: "6x4"  # Jane Street competition CMOS5L branch, not the main template
+  tiles: "6x4" # Jane Street competition CMOS5L branch, not the main template
   top_module: "tt_um_swapio"
   source_files:
-  - "project.v"
-  - "swapio_core.v"
+    - "include/swapio_pkg.sv"
+    - "swapio_alu.sv"
+    - "swapio_csr.sv"
+    - "swapio_decode.sv"
+    - "swapio_register_file.sv"
+    - "swapio_gpio_sync.sv"
+    - "swapio_fetch.sv"
+    - "swapio_execute.sv"
+    - "swapio_core.sv"
+    - "project.v"
 pinout:
   ui[0]: "GPIO_IN0"
   ui[1]: "GPIO_IN1"
