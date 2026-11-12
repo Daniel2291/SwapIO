@@ -66,7 +66,7 @@ module swapio_execute import swapio_pkg::*; #()(
   logic [1:0]       sys_ctrl_reg;
   logic [8:0]       sys_status_reg;
   logic [31:0]      osr;
-  logic [31:0]      isr;
+  logic [31:0]      isr_d, isr_q;
 
   //NOTE: PC is defined in swapio_core
 
@@ -125,13 +125,14 @@ module swapio_execute import swapio_pkg::*; #()(
 
   always_ff @(posedge clk_i or negedge rst_n) begin
     if (!rst_n) begin
-      cycle_count_reg <= 'b0;
-      flags_reg       <= 'b0;
+      cycle_count_reg         <= 'b0;
+      flags_reg               <= 'b0;
       wait_cycles_remaining_q <= 'b1;
       wait_active_q           <= 'b0;
 
       gpio_out_reg_q          <= 'b0;
       gpio_oe_reg_q           <= 'b0;
+      isr_q                   <= 'b0;
     end else begin
       if (flags_write_en) begin
         flags_reg       <= alu_flags;
@@ -141,6 +142,7 @@ module swapio_execute import swapio_pkg::*; #()(
 
       gpio_out_reg_q          <= gpio_out_reg_d;
       gpio_oe_reg_q           <= gpio_oe_reg_d;
+      isr_q                  <= isr_d;
     end
   end
 
@@ -161,6 +163,7 @@ module swapio_execute import swapio_pkg::*; #()(
 
     gpio_out_reg_d  = gpio_out_reg_q;
     gpio_oe_reg_d   = gpio_oe_reg_q;
+    isr_d           = isr_q;
 
     wait_cycles_remaining_d = wait_cycles_remaining_q;
     wait_active_d           = wait_active_q;
@@ -202,12 +205,11 @@ module swapio_execute import swapio_pkg::*; #()(
           end
 
           INSTR_IN: begin
-            //TODO need a synchronizer
-            // gpio_out_i[pin_operand] =
+            isr_d[imm_operand] = gpio_in[pin_operand];
           end
 
           INSTR_OUT: begin
-            //TODO
+            gpio_out[pin_operand] = osr[imm_operand];
           end
 
           INSTR_PUSH: begin
@@ -458,7 +460,7 @@ module swapio_execute import swapio_pkg::*; #()(
     .sys_ctrl_i(sys_ctrl_reg),
     .sys_status_i(sys_status_reg),
     .osr_i(osr),
-    .isr_i(isr),
+    .isr_i(isr_q),
     .gpio_out_i(gpio_out),
     .gpio_oe_i(gpio_oe),
     .gpio_in_i(gpio_in),
